@@ -9,6 +9,7 @@ import { systemInfoFixtures } from "fixtures/systemInfoFixtures";
 import axios from "axios";
 import AxiosMockAdapter from "axios-mock-adapter";
 import { rosterStudentFixtures } from "fixtures/rosterStudentFixtures";
+import { sectionsFixtures } from "fixtures/sectionsFixtures";
 import { courseStaffFixtures } from "fixtures/courseStaffFixtures";
 import { teamsFixtures } from "fixtures/TeamsFixtures";
 import { newAssignmentsFixtures } from "fixtures/newAssignmentsFixtures";
@@ -248,6 +249,38 @@ describe("StaffCourseShowPage tests", () => {
       expect(optionsRequests[0].params).toEqual({ courseId: "7" });
     });
 
+    test("staff see translated section labels in the Students tab when TRANSLATE_SECTIONS is on, without a Sections tab", async () => {
+      setupCourse();
+      axiosMock
+        .onGet("/api/courses/7/sections")
+        .reply(200, sectionsFixtures.threeSections);
+
+      renderPage();
+
+      await waitFor(
+        () =>
+          expect(screen.queryAllByText("Tue 9:00am").length).toBeGreaterThan(0),
+        { timeout: 5000 },
+      );
+      expect(screen.queryAllByText("0100")).toHaveLength(0);
+      expect(
+        screen.queryByRole("tab", { name: "Sections" }),
+      ).not.toBeInTheDocument();
+    });
+
+    test("staff see raw section values when TRANSLATE_SECTIONS is off", async () => {
+      setupCourse({ ...allOptions, TRANSLATE_SECTIONS: false });
+
+      renderPage();
+
+      await screen.findAllByText("0100", {}, { timeout: 5000 });
+      expect(
+        axiosMock.history.get.filter(
+          (r) => r.url === "/api/courses/7/sections",
+        ),
+      ).toHaveLength(0);
+    });
+
     test("staff get no other tab that depends on an option, and no Settings tab, whatever the options are", async () => {
       setupCourse();
 
@@ -277,8 +310,7 @@ describe("StaffCourseShowPage tests", () => {
           (request) =>
             request.url.startsWith("/api/courses/slack") ||
             request.url === "/api/dokku/translations" ||
-            request.url === "/api/courses/key" ||
-            request.url === "/api/courses/7/sections",
+            request.url === "/api/courses/key",
         ),
       ).toBe(false);
     });
