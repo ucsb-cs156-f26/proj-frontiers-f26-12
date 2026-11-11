@@ -46,7 +46,6 @@ export function CourseWarningBanner({
     {
       onSuccess: (_data, id) => {
         setBasePermissionWarningDismissedFor(id);
-        toast("Default base permission warning dismissed for this course");
       },
     },
     [`/api/courses/${courseId}`],

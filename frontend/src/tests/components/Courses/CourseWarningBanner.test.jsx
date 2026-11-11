@@ -24,7 +24,7 @@ describe("CourseWarningBanner tests", () => {
     axiosMock.reset();
     axiosMock.resetHistory();
     queryClient.clear();
-    mockToast.mockClear();
+    vi.clearAllMocks();
   });
 
   test("renders warning banner on warning return", async () => {
@@ -176,9 +176,7 @@ describe("CourseWarningBanner tests", () => {
         screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
       ).not.toBeInTheDocument(),
     );
-    expect(mockToast).toHaveBeenCalledWith(
-      "Default base permission warning dismissed for this course",
-    );
+    expect(mockToast).not.toHaveBeenCalled();
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["/api/courses/7"],
     });
@@ -211,9 +209,6 @@ describe("CourseWarningBanner tests", () => {
       expect(mockToast).toHaveBeenCalledWith(
         "Error: Request failed with status code 500",
       ),
-    );
-    expect(mockToast).not.toHaveBeenCalledWith(
-      "Default base permission warning dismissed for this course",
     );
     expect(
       screen.getByTestId("CourseWarningBanner-defaultBasePermission"),
