@@ -64,7 +64,18 @@ const basicHandlers = [
   }),
   http.get("/api/courses/emails", ({ request }) => {
     const format = new URL(request.url).searchParams.get("format");
-    const emails = courseStaff.map((staff) => staff.email);
+    const type = new URL(request.url).searchParams.get("type");
+    const team = new URL(request.url).searchParams.get("team");
+    const studentEmails = team
+      ? []
+      : rosterStudents.map((student) => student.email);
+    const staffEmails = team ? [] : courseStaff.map((staff) => staff.email);
+    const emails =
+      type === "ALL"
+        ? studentEmails.concat(staffEmails)
+        : type === "STAFF"
+          ? staffEmails
+          : studentEmails;
     return HttpResponse.text(
       format === "COMMA_SEPARATED" ? emails.join(",") : emails.join("\r\n"),
       { status: 200 },

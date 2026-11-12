@@ -16,6 +16,7 @@ import TeamsTabComponent from "main/components/TabComponent/TeamsTabComponent";
 import { CourseWarningBanner } from "main/components/Courses/CourseWarningBanner";
 import SettingsTabComponent from "main/components/TabComponent/SettingsTabComponent";
 import JobTabComponent from "main/components/TabComponent/JobTabComponent";
+import EmailTabComponent from "main/components/TabComponent/EmailTabComponent";
 import { hasRole } from "main/utils/currentUser";
 import DownloadsTabComponent from "main/components/TabComponent/DownloadsTabComponent";
 import SectionsTabComponent from "main/components/TabComponent/SectionsTabComponent";
@@ -290,6 +291,9 @@ export default function InstructorCourseShowPage({
             />
           </Tab>
         )}
+        <Tab eventKey={"emails"} title={"Emails"} className="pt-2">
+          <EmailTabComponent courseId={courseId} testIdPrefix={testId} />
+        </Tab>
         <Tab eventKey={"jobs"} title={"Jobs"} className="pt-2">
           <JobTabComponent courseId={courseId} testIdPrefix={testId} />
         </Tab>
