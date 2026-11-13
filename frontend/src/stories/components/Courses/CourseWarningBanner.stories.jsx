@@ -70,6 +70,11 @@ DefaultBasePermissionWarning.parameters = {
       http.get("/api/courses/warnings/1", () =>
         HttpResponse.json(showDefaultBasePermissionsWarning),
       ),
+      http.post("/api/courses/warnings/hideBasePermissionWarning/1", () =>
+        HttpResponse.json({
+          message: "hideBasePermissionWarning set to true for course with id 1",
+        }),
+      ),
     ],
   },
 };

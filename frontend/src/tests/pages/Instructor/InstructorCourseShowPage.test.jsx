@@ -559,6 +559,60 @@ describe("InstructorCourseShowPage tests", () => {
     ).toBeInTheDocument();
   });
 
+  test("dismisses the base permission warning and keeps it hidden after remounting the course page", async () => {
+    setupInstructorUser();
+    const course = {
+      ...coursesFixtures.severalCourses[0],
+      hideBasePermissionWarning: false,
+    };
+    axiosMock.onGet("/api/courses/7").reply(() => [200, { ...course }]);
+    axiosMock.onGet("/api/courses/warnings/7").reply(200, {
+      showDefaultBasePermissions: true,
+    });
+    axiosMock
+      .onPost("/api/courses/warnings/hideBasePermissionWarning/7")
+      .reply(() => {
+        course.hideBasePermissionWarning = true;
+        return [200, { message: "saved" }];
+      });
+    const page = (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/instructor/courses/7"]}>
+          <Routes>
+            <Route
+              path="/instructor/courses/:id"
+              element={<InstructorCourseShowPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { unmount } = render(page);
+    fireEvent.click(
+      await screen.findByTestId(
+        "CourseWarningBanner-defaultBasePermission-dismiss",
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData(["/api/courses/7"]).hideBasePermissionWarning,
+      ).toBe(true),
+    );
+    unmount();
+    queryClient.clear();
+    render(page);
+    await screen.findByText("CMPSC 156");
+    expect(
+      screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+    ).not.toBeInTheDocument();
+    expect(axiosMock.history.post).toHaveLength(1);
+  });
+
   test("hides default base permission warning when hideBasePermissionWarning is true", async () => {
     setupInstructorUser();
 

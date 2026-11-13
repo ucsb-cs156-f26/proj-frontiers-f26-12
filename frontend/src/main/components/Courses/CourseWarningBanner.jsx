@@ -31,10 +31,31 @@ export function CourseWarningBanner({
     },
   );
 
+  // Keep the immediate dismissal scoped to the course, including when the
+  // user navigates to another course before a request finishes.
+  const [
+    basePermissionWarningDismissedFor,
+    setBasePermissionWarningDismissedFor,
+  ] = useState(null);
+
+  const hideBasePermissionWarningMutation = useBackendMutation(
+    (id) => ({
+      url: `/api/courses/warnings/hideBasePermissionWarning/${id}`,
+      method: "POST",
+    }),
+    {
+      onSuccess: (_data, id) => {
+        setBasePermissionWarningDismissedFor(id);
+      },
+    },
+    [`/api/courses/${courseId}`],
+  );
+
   const showDefaultBasePermissionWarning =
     warnings?.showDefaultBasePermissions &&
     orgName &&
-    !hideBasePermissionWarning;
+    !hideBasePermissionWarning &&
+    basePermissionWarningDismissedFor !== courseId;
 
   const memberPrivilegesUrl = orgName
     ? `https://github.com/organizations/${orgName}/settings/member_privileges`
@@ -92,6 +113,16 @@ export function CourseWarningBanner({
             You can change that setting here
           </a>
           .
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            className="ms-2"
+            disabled={hideBasePermissionWarningMutation.isPending}
+            onClick={() => hideBasePermissionWarningMutation.mutate(courseId)}
+            data-testid="CourseWarningBanner-defaultBasePermission-dismiss"
+          >
+            Dismiss
+          </Button>
         </Alert>
       )}
       {showFreePlanWarning && (
