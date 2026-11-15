@@ -24,6 +24,7 @@ export default function OnboardingPreviewPage() {
   const { courseId } = useParams();
   const [stage, setStage] = useState("school");
   const [joined, setJoined] = useState(false);
+  const [inviteViewed, setInviteViewed] = useState(false);
   const [resetCount, setResetCount] = useState(0);
 
   // The backend only returns a course to admins, its instructor and its staff,
@@ -83,6 +84,7 @@ export default function OnboardingPreviewPage() {
   const resetPreview = () => {
     setStage("school");
     setJoined(false);
+    setInviteViewed(false);
     // Stryker disable next-line all : any new key remounts the screens, which clears the school picker
     setResetCount((count) => count + 1);
   };
@@ -97,11 +99,24 @@ export default function OnboardingPreviewPage() {
         );
       case "courses":
         return (
-          <OnboardingSelectCoursesComponent
-            courses={sampleCourses}
-            onJoinCourse={() => setJoined(true)}
-            onContinue={() => setStage("complete")}
-          />
+          <>
+            {inviteViewed && (
+              <Alert
+                variant="secondary"
+                data-testid="OnboardingPreviewPage-invite-notice"
+              >
+                In the real flow, View Invite opens the GitHub invitation for
+                the {course.orgName} organization in a new tab. The preview does
+                not open it, since no invitation was sent.
+              </Alert>
+            )}
+            <OnboardingSelectCoursesComponent
+              courses={sampleCourses}
+              onJoinCourse={() => setJoined(true)}
+              onViewInvite={() => setInviteViewed(true)}
+              onContinue={() => setStage("complete")}
+            />
+          </>
         );
       case "complete":
         return <OnboardingCompleteComponent onReturnHome={doNothing} />;

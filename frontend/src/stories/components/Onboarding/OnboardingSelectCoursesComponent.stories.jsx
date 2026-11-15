@@ -80,6 +80,7 @@ export const PreviewWithCourses = Template.bind({});
 PreviewWithCourses.args = {
   courses: coursesFixtures.oneRosterStudentWithEachStatus,
   onJoinCourse: fn(),
+  onViewInvite: fn(),
   onContinue: fn(),
 };
 

@@ -223,6 +223,69 @@ describe("OnboardingPreviewPage tests", () => {
     expect(axiosMock.history.post.length).toBe(0);
   });
 
+  test("View Invite stays in the preview and explains what a student would see", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    await renderAsAdmin();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    expect(
+      screen.queryByTestId("OnboardingPreviewPage-invite-notice"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(joinButton());
+    const viewInvite = joinButton();
+    expect(viewInvite).toHaveTextContent("View Invite");
+    fireEvent.click(viewInvite);
+    expect(openSpy).not.toHaveBeenCalled();
+    const notice = screen.getByTestId("OnboardingPreviewPage-invite-notice");
+    expect(notice).toHaveClass("alert-secondary");
+    expect(notice).toHaveTextContent(
+      `In the real flow, View Invite opens the GitHub invitation for the ${course.orgName} organization in a new tab. The preview does not open it, since no invitation was sent.`,
+    );
+    // still on the course stage of the preview
+    expect(screen.getByText("Joining Courses")).toBeInTheDocument();
+    expect(progressValue()).toBe("75");
+    expect(axiosMock.history.put.length).toBe(0);
+    expect(axiosMock.history.post.length).toBe(0);
+    openSpy.mockRestore();
+  });
+
+  test("the sample course name is not a link out of the preview", async () => {
+    await renderAsAdmin();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    const nameCell = screen.getByTestId(
+      "OnboardingCoursesTable-cell-row-0-col-courseName",
+    );
+    expect(nameCell).toHaveTextContent("CMPSC 156");
+    expect(
+      screen.queryByTestId(
+        "OnboardingCoursesTable-cell-row-0-col-courseName-link",
+      ),
+    ).not.toBeInTheDocument();
+    expect(nameCell.querySelector("a")).toBeNull();
+    fireEvent.click(nameCell);
+    expect(screen.getByText("Joining Courses")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("OnboardingPreviewPage-banner"),
+    ).toBeInTheDocument();
+  });
+
+  test("Reset preview clears the View Invite notice", async () => {
+    vi.spyOn(window, "open").mockImplementation(() => null);
+    await renderAsAdmin();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    fireEvent.click(joinButton());
+    fireEvent.click(joinButton());
+    expect(
+      screen.getByTestId("OnboardingPreviewPage-invite-notice"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-reset"));
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    expect(
+      screen.queryByTestId("OnboardingPreviewPage-invite-notice"),
+    ).not.toBeInTheDocument();
+    expect(joinButton()).toHaveTextContent("Join Course");
+    vi.restoreAllMocks();
+  });
+
   test("Reset preview restores the initial sample student and course", async () => {
     await renderAsAdmin();
 

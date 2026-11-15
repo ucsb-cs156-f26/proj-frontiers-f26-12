@@ -13,6 +13,7 @@ const noop = () => {};
 export default function OnboardingSelectCoursesComponent({
   courses,
   onJoinCourse = noop,
+  onViewInvite = noop,
   onContinue,
 }) {
   return (
@@ -24,11 +25,14 @@ export default function OnboardingSelectCoursesComponent({
           prompts to join:
         </p>
         {courses ? (
+          // Preview mode: no course name links and no real GitHub invite, so
+          // every control stays inside the preview
           <StudentCoursesTableView
             courses={courses}
             testid={"OnboardingCoursesTable"}
             joinCallback={onJoinCourse}
             isLoading={notJoining}
+            viewInviteCallback={onViewInvite}
           />
         ) : (
           <StudentCoursesTable testid={"OnboardingCoursesTable"} />
