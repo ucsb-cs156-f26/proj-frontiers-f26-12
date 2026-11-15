@@ -18,10 +18,12 @@ describe("CourseStaffCSVUploadForm tests", () => {
     expect(fileInput).toHaveAttribute("type", "file");
     expect(fileInput).toHaveAttribute("accept", ".csv");
     expect(fileInput).toHaveAttribute("id", "upload");
+    expect(fileInput).toBeEnabled();
 
     const submitButton = screen.getByTestId("CourseStaffCSVUploadForm-submit");
     expect(submitButton).toHaveAttribute("type", "submit");
     expect(submitButton).toHaveTextContent("Upload");
+    expect(submitButton).toBeEnabled();
 
     const label = screen.getByLabelText("Upload Staff CSV");
     expect(label).toBeInTheDocument();
@@ -59,5 +61,15 @@ describe("CourseStaffCSVUploadForm tests", () => {
     await waitFor(() => {
       expect(submitAction).toHaveBeenCalledTimes(1);
     });
+  });
+
+  test("prevents another submission or file change while uploading", async () => {
+    const submitAction = vi.fn();
+    render(<CourseStaffCSVUploadForm submitAction={submitAction} isPending />);
+    expect(screen.getByLabelText("Upload Staff CSV")).toBeDisabled();
+    const submit = screen.getByRole("button", { name: "Uploading…" });
+    expect(submit).toBeDisabled();
+    await userEvent.click(submit);
+    expect(submitAction).not.toHaveBeenCalled();
   });
 });
