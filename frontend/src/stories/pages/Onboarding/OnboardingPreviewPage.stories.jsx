@@ -12,6 +12,7 @@ export default {
   title: "pages/Onboarding/OnboardingPreviewPage",
   component: OnboardingPreviewPage,
   decorators: [withRouter],
+  args: { suppressMemoryRouter: true },
   parameters: {
     reactRouter: reactRouterParameters({
       location: {
