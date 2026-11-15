@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GithubController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.controllers</a> &gt; <span class="el_source">GithubController.java</span></div><h1>GithubController.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.controllers;
+
+import edu.ucsb.cs156.frontiers.entities.CourseStaff;
+import edu.ucsb.cs156.frontiers.entities.RosterStudent;
+import edu.ucsb.cs156.frontiers.entities.User;
+import edu.ucsb.cs156.frontiers.enums.OrgStatus;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
+import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
+import edu.ucsb.cs156.frontiers.repositories.UserRepository;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping(&quot;/api/github&quot;)
+public class GithubController extends ApiController {
+
+  private final UserRepository userRepository;
+  private final RosterStudentRepository rosterStudentRepository;
+  private final CourseStaffRepository courseStaffRepository;
+
+  public GithubController(
+      UserRepository userRepository,
+      RosterStudentRepository rosterStudentRepository,
+      CourseStaffRepository courseStaffRepository) {
+<span class="fc" id="L35">    super();</span>
+<span class="fc" id="L36">    this.userRepository = userRepository;</span>
+<span class="fc" id="L37">    this.rosterStudentRepository = rosterStudentRepository;</span>
+<span class="fc" id="L38">    this.courseStaffRepository = courseStaffRepository;</span>
+<span class="fc" id="L39">  }</span>
+
+  @PreAuthorize(&quot;hasRole('ROLE_GITHUB')&quot;)
+  @DeleteMapping(&quot;/disconnect&quot;)
+  public Object disconnect(SecurityContext context) {
+<span class="fc" id="L44">    User currentUser = getCurrentUser().getUser();</span>
+<span class="fc" id="L45">    currentUser.setGithubId(null);</span>
+<span class="fc" id="L46">    currentUser.setGithubLogin(null);</span>
+<span class="fc" id="L47">    userRepository.save(currentUser);</span>
+
+<span class="fc" id="L49">    List&lt;RosterStudent&gt; invitedStudents = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">    for (RosterStudent rs : rosterStudentRepository.findAllByUser(currentUser)) {</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">      if (rs.getOrgStatus() == OrgStatus.INVITED) {</span>
+<span class="fc" id="L52">        rs.setOrgStatus(OrgStatus.JOINCOURSE);</span>
+<span class="fc" id="L53">        rs.setGithubId(null);</span>
+<span class="fc" id="L54">        rs.setGithubLogin(null);</span>
+<span class="fc" id="L55">        invitedStudents.add(rs);</span>
+      }
+<span class="fc" id="L57">    }</span>
+<span class="fc" id="L58">    rosterStudentRepository.saveAll(invitedStudents);</span>
+
+<span class="fc" id="L60">    List&lt;CourseStaff&gt; invitedStaff = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">    for (CourseStaff cs : courseStaffRepository.findAllByUser(currentUser)) {</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">      if (cs.getOrgStatus() == OrgStatus.INVITED) {</span>
+<span class="fc" id="L63">        cs.setOrgStatus(OrgStatus.JOINCOURSE);</span>
+<span class="fc" id="L64">        cs.setGithubId(null);</span>
+<span class="fc" id="L65">        cs.setGithubLogin(null);</span>
+<span class="fc" id="L66">        invitedStaff.add(cs);</span>
+      }
+<span class="fc" id="L68">    }</span>
+<span class="fc" id="L69">    courseStaffRepository.saveAll(invitedStaff);</span>
+
+<span class="fc" id="L71">    Authentication auth = context.getAuthentication();</span>
+<span class="fc" id="L72">    List&lt;? extends GrantedAuthority&gt; removedAuthority =</span>
+<span class="fc" id="L73">        auth.getAuthorities().stream()</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            .filter(r -&gt; !&quot;ROLE_GITHUB&quot;.equals(r.getAuthority()))</span>
+<span class="fc" id="L75">            .toList();</span>
+<span class="fc" id="L76">    OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) context.getAuthentication();</span>
+<span class="fc" id="L77">    context.setAuthentication(</span>
+        new OAuth2AuthenticationToken(
+<span class="fc" id="L79">            (OidcUser) auth.getPrincipal(),</span>
+            removedAuthority,
+<span class="fc" id="L81">            token.getAuthorizedClientRegistrationId()));</span>
+<span class="fc" id="L82">    SecurityContextHolder.setContext(context);</span>
+<span class="fc" id="L83">    return genericMessage(&quot;Disconnected from GitHub. You may now log in with a different account.&quot;);</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
