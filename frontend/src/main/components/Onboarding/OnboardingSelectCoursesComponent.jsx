@@ -1,8 +1,20 @@
 import { Row, Button, Col } from "react-bootstrap";
 import { Link } from "react-router";
-import { StudentCoursesTable } from "main/components/Courses/StudentCoursesTable";
+import {
+  StudentCoursesTable,
+  StudentCoursesTableView,
+} from "main/components/Courses/StudentCoursesTable";
 
-export default function OnboardingSelectCoursesComponent() {
+// Stryker disable all : no-op defaults used only when a preview omits a handler
+const notJoining = () => false;
+const noop = () => {};
+// Stryker restore all
+
+export default function OnboardingSelectCoursesComponent({
+  courses,
+  onJoinCourse = noop,
+  onContinue,
+}) {
   return (
     <>
       <Row>
@@ -11,13 +23,26 @@ export default function OnboardingSelectCoursesComponent() {
           Next, you&#39;re listed on the roster of the courses below. Follow the
           prompts to join:
         </p>
-        <StudentCoursesTable testid={"OnboardingCoursesTable"} />
+        {courses ? (
+          <StudentCoursesTableView
+            courses={courses}
+            testid={"OnboardingCoursesTable"}
+            joinCallback={onJoinCourse}
+            isLoading={notJoining}
+          />
+        ) : (
+          <StudentCoursesTable testid={"OnboardingCoursesTable"} />
+        )}
       </Row>
       <Row className="pt-5 justify-content-center pb-3">
         <Col xs="auto" className="text-center">
-          <Button as={Link} to="/onboarding/success">
-            Continue
-          </Button>
+          {onContinue ? (
+            <Button onClick={onContinue}>Continue</Button>
+          ) : (
+            <Button as={Link} to="/onboarding/success">
+              Continue
+            </Button>
+          )}
         </Col>
       </Row>
     </>
