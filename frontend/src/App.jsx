@@ -32,6 +32,7 @@ import HelpCsvPage from "main/pages/Help/HelpCsvPage";
 import HelpChangingGithubAccountsPage from "main/pages/Help/HelpChangingGithubAccountsPage";
 import OnboardingSuccessPage from "main/pages/Onboarding/OnboardingSuccessPage";
 import OnboardingWrapperPage from "main/pages/Onboarding/OnboardingWrapperPage";
+import OnboardingPreviewPage from "main/pages/Onboarding/OnboardingPreviewPage";
 
 function App() {
   const currentUser = useCurrentUser();
@@ -75,6 +76,16 @@ function App() {
         />
         <Route path="/onboarding" element={<OnboardingWrapperPage />} />
         <Route path="/onboarding/success" element={<OnboardingSuccessPage />} />
+        <Route
+          path="/onboarding/preview/:courseId"
+          element={
+            <ProtectedPage
+              component={<OnboardingPreviewPage />}
+              enforceRole={"ROLE_USER"}
+              currentUser={currentUser}
+            />
+          }
+        />
         <Route
           path="/profile"
           element={

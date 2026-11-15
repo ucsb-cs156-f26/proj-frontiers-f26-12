@@ -3,7 +3,7 @@ import { useBackend } from "main/utils/useBackend";
 
 import BasicLayout from "main/layouts/BasicLayout/BasicLayout";
 import { useCurrentUser } from "main/utils/currentUser";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import Modal from "react-bootstrap/Modal";
 import { Button, Tab, Tabs, OverlayTrigger, Tooltip } from "react-bootstrap";
@@ -232,6 +232,16 @@ export default function InstructorCourseShowPage({
                 </div>
               )}
             </div>
+            <Button
+              as={Link}
+              to={`/onboarding/preview/${courseId}`}
+              variant="outline-primary"
+              size="sm"
+              className="ms-auto"
+              data-testid={`${testId}-onboarding-preview-link`}
+            >
+              View onboarding as student
+            </Button>
           </div>
         </div>
       )}
