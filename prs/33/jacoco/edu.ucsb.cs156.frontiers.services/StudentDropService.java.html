@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StudentDropService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.services</a> &gt; <span class="el_source">StudentDropService.java</span></div><h1>StudentDropService.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.services;
+
+import edu.ucsb.cs156.frontiers.entities.RosterStudent;
+import edu.ucsb.cs156.frontiers.entities.TeamMember;
+import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+/**
+ * Single place for everything that must happen when a student is dropped from a course. Currently
+ * this removes the student from all teams.
+ */
+@Service
+public class StudentDropService {
+
+  private final TeamMemberRepository teamMemberRepository;
+
+<span class="fc" id="L20">  public StudentDropService(TeamMemberRepository teamMemberRepository) {</span>
+<span class="fc" id="L21">    this.teamMemberRepository = teamMemberRepository;</span>
+<span class="fc" id="L22">  }</span>
+
+  public void handleStudentsDropped(Collection&lt;RosterStudent&gt; students) {
+<span class="fc bfc" id="L25" title="All 2 branches covered.">    for (RosterStudent student : students) {</span>
+<span class="fc" id="L26">      handleStudentDropped(student);</span>
+<span class="fc" id="L27">    }</span>
+<span class="fc" id="L28">  }</span>
+
+  public void handleStudentDropped(RosterStudent student) {
+<span class="fc" id="L31">    removeFromTeams(student);</span>
+<span class="fc" id="L32">  }</span>
+
+  private void removeFromTeams(RosterStudent student) {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">    if (student.getTeamMembers() == null) {</span>
+<span class="fc" id="L36">      return;</span>
+    }
+<span class="fc" id="L38">    List&lt;TeamMember&gt; memberships = new ArrayList&lt;&gt;(student.getTeamMembers());</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">    for (TeamMember teamMember : memberships) {</span>
+<span class="fc" id="L40">      teamMember.getTeam().getTeamMembers().remove(teamMember);</span>
+<span class="fc" id="L41">      student.getTeamMembers().remove(teamMember);</span>
+<span class="fc" id="L42">    }</span>
+<span class="fc" id="L43">    teamMemberRepository.deleteAll(memberships);</span>
+<span class="fc" id="L44">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
