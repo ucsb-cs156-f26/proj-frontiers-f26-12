@@ -696,7 +696,8 @@ public class CSVDownloadsControllerTests extends ControllerTestCase {
   public void test_courseStaff_no_such_course() throws Exception {
     when(courseRepository.findById(eq(1L))).thenReturn(Optional.empty());
 
-    MvcResult response = mockMvc.perform(get("/api/csv/coursestaff?courseId=1")).andReturn();
+    MvcResult response =
+        mockMvc.perform(get("/api/csv/coursestaff?courseId=1").accept("text/csv")).andReturn();
 
     String actualResponse = response.getResponse().getContentAsString();
     Map<String, String> errorResponse =
