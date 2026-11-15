@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CourseStaffCSVController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.controllers</a> &gt; <span class="el_source">CourseStaffCSVController.java</span></div><h1>CourseStaffCSVController.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.controllers;
+
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvException;
+import edu.ucsb.cs156.frontiers.entities.Course;
+import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
+import edu.ucsb.cs156.frontiers.models.CourseStaffCsvImportResult;
+import edu.ucsb.cs156.frontiers.models.CourseStaffCsvImportResult.RowError;
+import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
+import edu.ucsb.cs156.frontiers.services.CourseStaffCsvImportService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@Tag(name = &quot;CourseStaff&quot;)
+@RequestMapping(&quot;/api/coursestaff&quot;)
+@RestController(&quot;CourseStaffCSVController&quot;)
+<span class="fc" id="L37">@Slf4j</span>
+<span class="fc" id="L38">public class CourseStaffCSVController extends ApiController {</span>
+
+  @Autowired private CourseStaffRepository courseStaffRepository;
+
+  @Autowired private CourseRepository courseRepository;
+
+  @Autowired private CourseStaffCsvImportService courseStaffCsvImportService;
+
+  public static final String STAFF_CSV_HEADERS = &quot;firstName,lastName,email&quot;;
+
+  @Operation(
+      summary = &quot;Upload Course Staff from CSV&quot;,
+      description =
+          &quot;Imports valid rows and returns count plus row-specific errors. CSV row numbers include&quot;
+              + &quot; the header as row 1. Empty files, invalid headers, and malformed CSV return 400&quot;
+              + &quot; without importing any rows.&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasInstructorPermissions(#root, #courseId)&quot;)
+  @PostMapping(
+      value = &quot;/upload/csv&quot;,
+      consumes = {&quot;multipart/form-data&quot;})
+  public CourseStaffCsvImportResult uploadStaffCSV(
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
+      @Parameter(name = &quot;file&quot;) @RequestParam(&quot;file&quot;) MultipartFile file) {
+
+<span class="fc" id="L62">    Course course =</span>
+        courseRepository
+<span class="fc" id="L64">            .findById(courseId)</span>
+<span class="fc" id="L65">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId.toString()));</span>
+
+    // Parse the whole file before saving anything, so a malformed file cannot leave an unreported
+    // partial import. Recoverable validation errors in individual records are handled below.
+    List&lt;String[]&gt; rows;
+<span class="fc" id="L70">    try (InputStream inputStream = new BufferedInputStream(file.getInputStream());</span>
+<span class="fc" id="L71">        InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);</span>
+<span class="fc" id="L72">        CSVReader csvReader = new CSVReader(reader)) {</span>
+<span class="fc" id="L73">      rows = csvReader.readAll();</span>
+<span class="fc" id="L74">    } catch (IOException | CsvException e) {</span>
+<span class="fc" id="L75">      throw new IllegalArgumentException(</span>
+          &quot;CSV file could not be read. Check the CSV format and quotation marks.&quot;, e);
+<span class="fc" id="L77">    }</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">    if (rows.isEmpty()) {</span>
+<span class="fc" id="L79">      throw new IllegalArgumentException(&quot;CSV file is empty&quot;);</span>
+    }
+<span class="fc" id="L81">    validateHeaders(rows.get(0));</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">    if (rows.size() == 1) {</span>
+<span class="fc" id="L83">      throw new IllegalArgumentException(&quot;CSV file does not contain any staff rows&quot;);</span>
+    }
+
+<span class="fc" id="L86">    int count = 0;</span>
+<span class="fc" id="L87">    List&lt;RowError&gt; errors = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L88">    Set&lt;String&gt; seenEmails = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">    for (int index = 1; index &lt; rows.size(); index++) {</span>
+<span class="fc" id="L90">      String[] row = rows.get(index);</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">      String email = row.length &gt;= 3 ? row[2].strip() : &quot;&quot;;</span>
+<span class="fc" id="L92">      String error = validateRow(row);</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">      if (error != null) {</span>
+<span class="fc" id="L94">        errors.add(new RowError(index + 1, email, error));</span>
+<span class="fc" id="L95">        continue;</span>
+      }
+<span class="fc bfc" id="L97" title="All 2 branches covered.">      if (!seenEmails.add(email)) {</span>
+<span class="fc" id="L98">        errors.add(new RowError(index + 1, email, &quot;Email is repeated in this CSV file.&quot;));</span>
+<span class="fc" id="L99">        continue;</span>
+      }
+<span class="fc bfc" id="L101" title="All 2 branches covered.">      if (courseStaffRepository.findByEmailAndCourse(email, course).isPresent()) {</span>
+<span class="fc" id="L102">        errors.add(new RowError(index + 1, email, &quot;Email is already on this course's staff.&quot;));</span>
+<span class="fc" id="L103">        continue;</span>
+      }
+      try {
+<span class="fc" id="L106">        courseStaffCsvImportService.importStaff(course, row[0].strip(), row[1].strip(), email);</span>
+<span class="fc" id="L107">        count++;</span>
+<span class="fc" id="L108">      } catch (DataIntegrityViolationException e) {</span>
+        // Handle a concurrent insertion using the same comparison as the database. Do not label
+        // unrelated database failures as duplicates. The row transaction has already rolled back.
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (courseStaffRepository.findByEmailAndCourse(email, course).isEmpty()) {</span>
+<span class="fc" id="L112">          throw e;</span>
+        }
+<span class="fc" id="L114">        errors.add(new RowError(index + 1, email, &quot;Email is already on this course's staff.&quot;));</span>
+<span class="fc" id="L115">      }</span>
+    }
+<span class="fc" id="L117">    return new CourseStaffCsvImportResult(count, errors);</span>
+  }
+
+  private static String validateRow(String[] row) {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">    if (row.length &lt; 3) {</span>
+<span class="fc" id="L122">      return &quot;Expected at least 3 columns: firstName,lastName,email.&quot;;</span>
+    }
+<span class="fc" id="L124">    String[] names = {&quot;First name&quot;, &quot;Last name&quot;, &quot;Email&quot;};</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">    for (int i = 0; i &lt; 3; i++) {</span>
+<span class="fc" id="L126">      String value = row[i].strip();</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">      if (value.isEmpty()) {</span>
+<span class="fc" id="L128">        return names[i] + &quot; is required.&quot;;</span>
+      }
+<span class="fc bfc" id="L130" title="All 2 branches covered.">      if (value.length() &gt; 255) {</span>
+<span class="fc" id="L131">        return names[i] + &quot; must be at most 255 characters.&quot;;</span>
+      }
+    }
+<span class="fc bfc" id="L134" title="All 2 branches covered.">    if (!row[2].strip().matches(&quot;[^\\s@]+@[^\\s@]+\\.[^\\s@]+&quot;)) {</span>
+<span class="fc" id="L135">      return &quot;Enter a valid email address.&quot;;</span>
+    }
+<span class="fc" id="L137">    return null;</span>
+  }
+
+  static void validateHeaders(String[] headers) {
+<span class="fc" id="L141">    String[] expectedHeaders = STAFF_CSV_HEADERS.split(&quot;,&quot;);</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">    if (headers.length &lt; expectedHeaders.length) {</span>
+<span class="fc" id="L143">      throw new IllegalArgumentException(</span>
+<span class="fc" id="L144">          String.format(</span>
+              &quot;CSV headers do not match expected format. Expected: %s&quot;, STAFF_CSV_HEADERS));
+    }
+<span class="fc bfc" id="L147" title="All 2 branches covered.">    for (int i = 0; i &lt; expectedHeaders.length; i++) {</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">      if (!expectedHeaders[i].trim().equalsIgnoreCase(headers[i].trim())) {</span>
+<span class="fc" id="L149">        throw new IllegalArgumentException(</span>
+<span class="fc" id="L150">            String.format(</span>
+                &quot;CSV headers do not match expected format. Expected: %s&quot;, STAFF_CSV_HEADERS));
+      }
+    }
+<span class="fc" id="L154">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
