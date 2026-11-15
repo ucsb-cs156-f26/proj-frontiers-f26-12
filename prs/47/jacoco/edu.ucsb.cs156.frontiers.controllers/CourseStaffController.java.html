@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CourseStaffController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.controllers</a> &gt; <span class="el_source">CourseStaffController.java</span></div><h1>CourseStaffController.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.controllers;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import edu.ucsb.cs156.frontiers.entities.*;
+import edu.ucsb.cs156.frontiers.enums.OrgStatus;
+import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
+import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
+import edu.ucsb.cs156.frontiers.services.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+
+@Tag(name = &quot;CourseStaff&quot;)
+@RequestMapping(&quot;/api/coursestaff&quot;)
+@RestController
+<span class="fc" id="L31">@Slf4j</span>
+<span class="fc" id="L32">public class CourseStaffController extends ApiController {</span>
+
+  @Autowired private OrganizationMemberService organizationMemberService;
+
+  @Autowired private CourseStaffRepository courseStaffRepository;
+
+  @Autowired private CourseRepository courseRepository;
+
+  @Autowired private UpdateUserService updateUserService;
+
+  @Autowired private CurrentUserService currentUserService;
+
+  /**
+   * This method creates a new CourseStaff.
+   *
+   * @return the created CourseStaff
+   */
+  @Operation(summary = &quot;Add a staff member to a course&quot;)
+  @ApiResponse(
+      responseCode = &quot;200&quot;,
+      description = &quot;Staff member created&quot;,
+      content = @Content(schema = @Schema(implementation = CourseStaff.class)))
+  @ApiResponse(
+      responseCode = &quot;409&quot;,
+      description = &quot;The email is already on this course's staff&quot;,
+      content =
+          @Content(
+              mediaType = &quot;application/json&quot;,
+              examples =
+                  @ExampleObject(
+                      value =
+                          &quot;{\&quot;message\&quot;:\&quot;staff@example.com is already on this course's staff. Enter a different email address to add another staff member.\&quot;}&quot;)))
+  @PreAuthorize(&quot;@CourseSecurity.hasInstructorPermissions(#root, #courseId)&quot;)
+  @PostMapping(&quot;/post&quot;)
+  public ResponseEntity&lt;Object&gt; postCourseStaff(
+      @Parameter(name = &quot;firstName&quot;) @RequestParam String firstName,
+      @Parameter(name = &quot;lastName&quot;) @RequestParam String lastName,
+      @Parameter(name = &quot;email&quot;) @RequestParam String email,
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId)
+      throws EntityNotFoundException {
+
+    // Get Course or else throw an error
+
+<span class="fc" id="L75">    Course course =</span>
+        courseRepository
+<span class="fc" id="L77">            .findById(courseId)</span>
+<span class="fc" id="L78">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+
+    CourseStaff courseStaff =
+<span class="fc" id="L81">        CourseStaff.builder()</span>
+<span class="fc" id="L82">            .firstName(firstName)</span>
+<span class="fc" id="L83">            .lastName(lastName)</span>
+<span class="fc" id="L84">            .email(email.strip())</span>
+<span class="fc" id="L85">            .course(course)</span>
+<span class="fc" id="L86">            .build();</span>
+
+<span class="fc bfc" id="L88" title="All 2 branches covered.">    if (course.getInstallationId() != null) {</span>
+<span class="fc" id="L89">      courseStaff.setOrgStatus(OrgStatus.JOINCOURSE);</span>
+    } else {
+<span class="fc" id="L91">      courseStaff.setOrgStatus(OrgStatus.PENDING);</span>
+    }
+
+    CourseStaff savedCourseStaff;
+    try {
+<span class="fc" id="L96">      savedCourseStaff = courseStaffRepository.save(courseStaff);</span>
+<span class="fc" id="L97">    } catch (DataIntegrityViolationException e) {</span>
+      // The repository transaction has rolled back before this lookup. Let the database enforce
+      // uniqueness, including concurrent submissions, and only translate a confirmed duplicate.
+<span class="fc bfc" id="L100" title="All 2 branches covered.">      if (courseStaffRepository.findByEmailAndCourse(courseStaff.getEmail(), course).isPresent()) {</span>
+<span class="fc" id="L101">        return ResponseEntity.status(HttpStatus.CONFLICT)</span>
+<span class="fc" id="L102">            .body(</span>
+<span class="fc" id="L103">                genericMessage(</span>
+<span class="fc" id="L104">                    courseStaff.getEmail()</span>
+                        + &quot; is already on this course's staff. Enter a different email address to add another staff member.&quot;));
+      }
+<span class="fc" id="L107">      throw e;</span>
+<span class="fc" id="L108">    }</span>
+
+<span class="fc" id="L110">    updateUserService.attachUserToCourseStaff(savedCourseStaff);</span>
+
+<span class="fc" id="L112">    return ResponseEntity.ok(savedCourseStaff);</span>
+  }
+
+  /**
+   * This method returns a list of course staff for a given course.
+   *
+   * @return a list of all courses.
+   */
+  @Operation(summary = &quot;List all course staff members for a course&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  @GetMapping(&quot;/course&quot;)
+  public Iterable&lt;CourseStaff&gt; courseStaffForCourse(
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId) throws EntityNotFoundException {
+<span class="fc" id="L125">    courseRepository</span>
+<span class="fc" id="L126">        .findById(courseId)</span>
+<span class="fc" id="L127">        .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+<span class="fc" id="L128">    Iterable&lt;CourseStaff&gt; courseStaffs = courseStaffRepository.findByCourseId(courseId);</span>
+<span class="fc" id="L129">    return courseStaffs;</span>
+  }
+
+  @Operation(
+      summary =
+          &quot;Allow staff member to join a course by generating an invitation to the linked Github Org&quot;)
+  @PreAuthorize(&quot;hasRole('ROLE_USER')&quot;)
+  @PutMapping(&quot;/joinCourse&quot;)
+  public ResponseEntity&lt;String&gt; joinCourseOnGitHub(
+      @Parameter(name = &quot;courseStaffId&quot;, description = &quot;Staff Member joining a course on GitHub&quot;)
+          @RequestParam
+          Long courseStaffId)
+      throws NoSuchAlgorithmException, InvalidKeySpecException, JsonProcessingException {
+
+<span class="fc" id="L143">    User currentUser = currentUserService.getUser();</span>
+<span class="fc" id="L144">    CourseStaff courseStaff =</span>
+        courseStaffRepository
+<span class="fc" id="L146">            .findById(courseStaffId)</span>
+<span class="fc" id="L147">            .orElseThrow(() -&gt; new EntityNotFoundException(CourseStaff.class, courseStaffId));</span>
+
+<span class="fc bfc" id="L149" title="All 4 branches covered.">    if (courseStaff.getUser() == null || currentUser.getId() != courseStaff.getUser().getId()) {</span>
+<span class="fc" id="L150">      throw new IllegalArgumentException(</span>
+<span class="fc" id="L151">          String.format(</span>
+              &quot;This operation is restricted to the user associated with staff member with id %d&quot;,
+<span class="fc" id="L153">              courseStaff.getId()));</span>
+    }
+
+<span class="fc bfc" id="L156" title="All 2 branches covered.">    if (courseStaff.getGithubId() != null</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        &amp;&amp; courseStaff.getGithubLogin() != null</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        &amp;&amp; (courseStaff.getOrgStatus() == OrgStatus.MEMBER</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">            || courseStaff.getOrgStatus() == OrgStatus.OWNER)) {</span>
+<span class="fc" id="L160">      return ResponseEntity.badRequest()</span>
+<span class="fc" id="L161">          .body(&quot;You have already linked a Github account to this course.&quot;);</span>
+    }
+
+<span class="fc bfc" id="L164" title="All 2 branches covered.">    if (courseStaff.getCourse().getOrgName() == null</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        || courseStaff.getCourse().getInstallationId() == null) {</span>
+<span class="fc" id="L166">      return ResponseEntity.badRequest()</span>
+<span class="fc" id="L167">          .body(&quot;Course has not been set up. Please ask your instructor for help.&quot;);</span>
+    }
+<span class="fc" id="L169">    courseStaff.setGithubId(currentUser.getGithubId());</span>
+<span class="fc" id="L170">    courseStaff.setGithubLogin(currentUser.getGithubLogin());</span>
+<span class="fc" id="L171">    OrgStatus status = organizationMemberService.inviteOrganizationOwner(courseStaff);</span>
+<span class="fc" id="L172">    courseStaff.setOrgStatus(status);</span>
+<span class="fc" id="L173">    courseStaffRepository.save(courseStaff);</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">    if (status == OrgStatus.INVITED) {</span>
+<span class="fc" id="L175">      return ResponseEntity.accepted().body(&quot;Successfully invited staff member to Organization&quot;);</span>
+<span class="fc bfc" id="L176" title="All 4 branches covered.">    } else if (status == OrgStatus.MEMBER || status == OrgStatus.OWNER) {</span>
+<span class="fc" id="L177">      return ResponseEntity.accepted()</span>
+<span class="fc" id="L178">          .body(&quot;Already in organization - set status to %s&quot;.formatted(status.toString()));</span>
+    } else {
+<span class="fc" id="L180">      return ResponseEntity.internalServerError()</span>
+<span class="fc" id="L181">          .body(&quot;Could not invite staff member to Organization&quot;);</span>
+    }
+  }
+
+  @Operation(summary = &quot;Update a staff member&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasInstructorPermissions(#root, #courseId)&quot;)
+  @PutMapping(&quot;&quot;)
+  public CourseStaff updateStaffMember(
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
+      @Parameter(name = &quot;id&quot;) @RequestParam Long id,
+      @Parameter(name = &quot;firstName&quot;) @RequestParam String firstName,
+      @Parameter(name = &quot;lastName&quot;) @RequestParam String lastName)
+      throws EntityNotFoundException {
+
+<span class="fc" id="L195">    CourseStaff staffMember =</span>
+        courseStaffRepository
+<span class="fc" id="L197">            .findById(id)</span>
+<span class="fc" id="L198">            .orElseThrow(() -&gt; new EntityNotFoundException(CourseStaff.class, id));</span>
+
+<span class="fc" id="L200">    staffMember.setFirstName(firstName.trim());</span>
+<span class="fc" id="L201">    staffMember.setLastName(lastName.trim());</span>
+<span class="fc" id="L202">    return courseStaffRepository.save(staffMember);</span>
+  }
+
+  @Operation(summary = &quot;Delete a staff member&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasInstructorPermissions(#root, #courseId)&quot;)
+  @DeleteMapping(&quot;/delete&quot;)
+  @Transactional
+  public ResponseEntity&lt;String&gt; deleteStaffMember(
+      @Parameter(name = &quot;id&quot;) @RequestParam Long id,
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
+      @Parameter(
+              name = &quot;removeFromOrg&quot;,
+              description = &quot;Whether to remove course staff from GitHub organization&quot;)
+          @RequestParam(defaultValue = &quot;false&quot;)
+          boolean removeFromOrg)
+      throws EntityNotFoundException {
+<span class="fc" id="L218">    CourseStaff staffMember =</span>
+        courseStaffRepository
+<span class="fc" id="L220">            .findById(id)</span>
+<span class="fc" id="L221">            .orElseThrow(() -&gt; new EntityNotFoundException(CourseStaff.class, id));</span>
+<span class="fc" id="L222">    Course course = staffMember.getCourse();</span>
+
+<span class="fc" id="L224">    boolean orgRemovalAttempted = false;</span>
+<span class="fc" id="L225">    boolean orgRemovalSuccessful = false;</span>
+<span class="fc" id="L226">    String orgRemovalErrorMessage = null;</span>
+
+    // Try to remove the course staff from the organization if they have a GitHub login
+<span class="fc bfc" id="L229" title="All 2 branches covered.">    if (staffMember.getGithubLogin() != null</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">        &amp;&amp; course.getOrgName() != null</span>
+<span class="fc bfc" id="L231" title="All 4 branches covered.">        &amp;&amp; course.getInstallationId() != null</span>
+        &amp;&amp; removeFromOrg) {
+<span class="fc" id="L233">      orgRemovalAttempted = true;</span>
+      try {
+<span class="fc" id="L235">        organizationMemberService.removeOrganizationMember(staffMember);</span>
+<span class="fc" id="L236">        orgRemovalSuccessful = true;</span>
+<span class="fc" id="L237">      } catch (Exception e) {</span>
+<span class="fc" id="L238">        log.error(&quot;Error removing course staff from organization: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L239">        orgRemovalErrorMessage = e.getMessage();</span>
+        // Continue with deletion even if organization removal fails
+<span class="fc" id="L241">      }</span>
+    }
+
+<span class="fc" id="L244">    course.getCourseStaff().remove(staffMember);</span>
+<span class="fc" id="L245">    staffMember.setCourse(null);</span>
+<span class="fc" id="L246">    courseStaffRepository.delete(staffMember);</span>
+
+<span class="fc bfc" id="L248" title="All 2 branches covered.">    if (!orgRemovalAttempted) {</span>
+<span class="fc" id="L249">      return ResponseEntity.ok(</span>
+          &quot;Successfully deleted staff member and removed them from the staff roster.&quot;);
+<span class="fc bfc" id="L251" title="All 2 branches covered.">    } else if (orgRemovalSuccessful) {</span>
+<span class="fc" id="L252">      return ResponseEntity.ok(</span>
+          &quot;Successfully deleted staff member and removed them from the staff roster and organization.&quot;);
+    } else {
+<span class="fc" id="L255">      return ResponseEntity.ok(</span>
+          &quot;Successfully deleted staff member but there was an error removing them from the course organization: &quot;
+              + orgRemovalErrorMessage);
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
