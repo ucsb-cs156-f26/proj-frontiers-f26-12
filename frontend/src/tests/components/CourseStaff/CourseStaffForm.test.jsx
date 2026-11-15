@@ -36,6 +36,22 @@ describe("CourseStaffForm tests", () => {
     });
     expect(await screen.findByTestId(`${testId}-email`)).toBeInTheDocument();
     expect(screen.getByText(`Email`)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+  });
+
+  test("shows the submission error and disables submit while saving", () => {
+    render(
+      <CourseStaffForm
+        errorMessage="This email is already on the course staff."
+        isSubmitting={true}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This email is already on the course staff.",
+    );
+    expect(screen.getByRole("alert")).toHaveClass("alert-danger");
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
   });
 
   test("renders correctly when passing in initialContents", async () => {

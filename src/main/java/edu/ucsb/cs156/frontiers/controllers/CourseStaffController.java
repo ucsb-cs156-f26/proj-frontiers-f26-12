@@ -9,11 +9,17 @@ import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
 import edu.ucsb.cs156.frontiers.services.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,9 +47,23 @@ public class CourseStaffController extends ApiController {
    * @return the created CourseStaff
    */
   @Operation(summary = "Add a staff member to a course")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Staff member created",
+      content = @Content(schema = @Schema(implementation = CourseStaff.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The email is already on this course's staff",
+      content =
+          @Content(
+              mediaType = "application/json",
+              examples =
+                  @ExampleObject(
+                      value =
+                          "{\"message\":\"staff@example.com is already on this course's staff. Enter a different email address to add another staff member.\"}")))
   @PreAuthorize("@CourseSecurity.hasInstructorPermissions(#root, #courseId)")
   @PostMapping("/post")
-  public CourseStaff postCourseStaff(
+  public ResponseEntity<Object> postCourseStaff(
       @Parameter(name = "firstName") @RequestParam String firstName,
       @Parameter(name = "lastName") @RequestParam String lastName,
       @Parameter(name = "email") @RequestParam String email,
@@ -71,11 +91,25 @@ public class CourseStaffController extends ApiController {
       courseStaff.setOrgStatus(OrgStatus.PENDING);
     }
 
-    CourseStaff savedCourseStaff = courseStaffRepository.save(courseStaff);
+    CourseStaff savedCourseStaff;
+    try {
+      savedCourseStaff = courseStaffRepository.save(courseStaff);
+    } catch (DataIntegrityViolationException e) {
+      // The repository transaction has rolled back before this lookup. Let the database enforce
+      // uniqueness, including concurrent submissions, and only translate a confirmed duplicate.
+      if (courseStaffRepository.findByEmailAndCourse(courseStaff.getEmail(), course).isPresent()) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(
+                genericMessage(
+                    courseStaff.getEmail()
+                        + " is already on this course's staff. Enter a different email address to add another staff member."));
+      }
+      throw e;
+    }
 
     updateUserService.attachUserToCourseStaff(savedCourseStaff);
 
-    return savedCourseStaff;
+    return ResponseEntity.ok(savedCourseStaff);
   }
 
   /**

@@ -26,6 +26,7 @@ export default function StaffTabComponent({
   isInstructor = true,
 }) {
   const [postModal, showPostModal] = useState(false);
+  const [postError, setPostError] = useState("");
   const [csvModal, setCsvModal] = useState(false);
   const { data: courseStaff } = useBackend(
     [`/api/coursestaff/course?courseId=${courseId}`],
@@ -69,7 +70,17 @@ export default function StaffTabComponent({
 
   const staffPostMutation = useBackendMutation(
     objectToAxiosParamsPost,
-    { onSuccess: () => onSuccessStaff(showPostModal) },
+    {
+      onSuccess: () => onSuccessStaff(showPostModal),
+      onError: (error) => {
+        const message = error.response?.data?.message;
+        setPostError(
+          error.response?.status === 409 && typeof message === "string"
+            ? message
+            : "Could not add staff member. Please try again.",
+        );
+      },
+    },
     [
       `/api/coursestaff/course?courseId=${courseId}`,
       courseEmailsQueryKey(courseId),
@@ -94,6 +105,7 @@ export default function StaffTabComponent({
   );
 
   const handlePostSubmit = (staff) => {
+    setPostError("");
     staffPostMutation.mutate(staff);
   };
 
@@ -125,6 +137,8 @@ export default function StaffTabComponent({
           <CourseStaffForm
             submitAction={handlePostSubmit}
             cancelDisabled={true}
+            errorMessage={postError}
+            isSubmitting={staffPostMutation.isPending}
           />
         </ModalBody>
       </Modal>
@@ -177,7 +191,10 @@ export default function StaffTabComponent({
           </Col>
           <Col>
             <Button
-              onClick={() => showPostModal(true)}
+              onClick={() => {
+                setPostError("");
+                showPostModal(true);
+              }}
               data-testid={`${testIdPrefix}-post-button`}
               className="w-100"
             >

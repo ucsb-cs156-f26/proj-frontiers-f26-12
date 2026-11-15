@@ -1,10 +1,13 @@
 package edu.ucsb.cs156.frontiers.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -26,9 +29,12 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
@@ -79,7 +85,7 @@ public class CourseStaffControllerTests extends ControllerTestCase {
 
   /** Test the POST endpoint */
   @Test
-  @WithMockUser(roles = {"ADMIN"})
+  @WithInstructorCoursePermissions
   public void testPostCourseStaff() throws Exception {
 
     Course course2 =
@@ -127,6 +133,95 @@ public class CourseStaffControllerTests extends ControllerTestCase {
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(cs2);
     assertEquals(expectedJson, responseString);
+  }
+
+  @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void duplicate_database_write_returns_conflict_with_actionable_message() throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course1));
+    when(courseStaffRepository.save(any(CourseStaff.class)))
+        .thenThrow(new DataIntegrityViolationException("Unique constraint violation"));
+    when(courseStaffRepository.findByEmailAndCourse("cgaucho@example.org", course1))
+        .thenReturn(Optional.of(cs1));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                post("/api/coursestaff/post")
+                    .with(csrf())
+                    .param("firstName", "Changed")
+                    .param("lastName", "Name")
+                    .param("email", " cgaucho@example.org ")
+                    .param("courseId", "1"))
+            .andExpect(status().isConflict())
+            .andReturn();
+
+    assertEquals(
+        Map.of(
+            "message",
+            "cgaucho@example.org is already on this course's staff. "
+                + "Enter a different email address to add another staff member."),
+        responseToJson(response));
+    verify(courseStaffRepository).findByEmailAndCourse("cgaucho@example.org", course1);
+    verify(courseStaffRepository)
+        .save(argThat(staff -> staff.getEmail().equals("cgaucho@example.org")));
+    verifyNoInteractions(updateUserService);
+    assertEquals("Chris", cs1.getFirstName());
+    assertEquals("Gaucho", cs1.getLastName());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"USER", "INSTRUCTOR"})
+  public void users_without_course_permissions_cannot_add_staff(String role) throws Exception {
+    mockMvc
+        .perform(
+            post("/api/coursestaff/post")
+                .with(csrf())
+                .with(user("unauthorized").roles(role))
+                .param("firstName", "Chris")
+                .param("lastName", "Gaucho")
+                .param("email", "cgaucho@example.org")
+                .param("courseId", "1"))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(courseStaffRepository, updateUserService);
+  }
+
+  @Test
+  public void anonymous_users_cannot_add_staff() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/coursestaff/post")
+                .with(csrf())
+                .param("firstName", "Chris")
+                .param("lastName", "Gaucho")
+                .param("email", "cgaucho@example.org")
+                .param("courseId", "1"))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(courseStaffRepository, updateUserService);
+  }
+
+  @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void unrelated_integrity_error_is_not_reported_as_a_duplicate() throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course1));
+    var failure = new DataIntegrityViolationException("Unrelated database constraint");
+    when(courseStaffRepository.save(any(CourseStaff.class))).thenThrow(failure);
+
+    var thrown =
+        assertThrows(
+            jakarta.servlet.ServletException.class,
+            () ->
+                mockMvc.perform(
+                    post("/api/coursestaff/post")
+                        .with(csrf())
+                        .param("firstName", "Chris")
+                        .param("lastName", "Gaucho")
+                        .param("email", "cgaucho@example.org")
+                        .param("courseId", "1")));
+
+    assertSame(failure, thrown.getCause());
+    verify(courseStaffRepository).findByEmailAndCourse("cgaucho@example.org", course1);
+    verifyNoInteractions(updateUserService);
   }
 
   /** Test the POST endpoint email sanitization */
