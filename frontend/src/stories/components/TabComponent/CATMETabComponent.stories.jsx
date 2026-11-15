@@ -6,5 +6,5 @@ export default {
 };
 
 export const Default = {
-  args: { testIdPrefix: "InstructorCourseShowPage" },
+  args: { courseId: 7, testIdPrefix: "InstructorCourseShowPage" },
 };

@@ -1473,7 +1473,20 @@ describe("InstructorCourseShowPage tests", () => {
         "InstructorCourseShowPage-catme-tab-component",
       );
       expect(content).toBeVisible();
-      expect(content).toHaveTextContent("CATME features coming soon");
+      expect(content).toHaveTextContent(
+        "Download this course's roster for use in CATME.",
+      );
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Download CSV Roster in CATME format",
+        }),
+      );
+      expect(openSpy).toHaveBeenCalledExactlyOnceWith(
+        "/api/csv/catme?courseId=7",
+        "_blank",
+      );
+      openSpy.mockRestore();
       expect(content.parentElement).toHaveClass("pt-2");
       expect(window.localStorage.getItem("frontiers.courseTab.7")).toBe(
         "catme",
