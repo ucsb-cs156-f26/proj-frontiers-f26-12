@@ -51,6 +51,18 @@ function App() {
           <Route path="*" element={<HomePageConnectGithub />} />
           <Route path="/login/success" element={<SignInSuccessPage />} />
           <Route path="/onboarding" element={<OnboardingWrapperPage />} />
+          {/* Course managers can preview student onboarding before linking
+              GitHub. The page itself checks course permissions. */}
+          <Route
+            path="/onboarding/preview/:courseId"
+            element={
+              <ProtectedPage
+                component={<OnboardingPreviewPage />}
+                enforceRole={"ROLE_USER"}
+                currentUser={currentUser}
+              />
+            }
+          />
         </Routes>
       </BrowserRouter>
     );
