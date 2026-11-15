@@ -303,6 +303,7 @@ export default function TeamsTable({
           <Button
             variant="outline-secondary"
             size="sm"
+            // Stryker disable next-line ArrayDeclaration : empty array collapses all
             onClick={() => setSelectedTeamKeys([])}
             data-testid={`${testIdPrefix}-collapse-all-button`}
           >
