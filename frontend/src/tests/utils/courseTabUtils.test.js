@@ -25,6 +25,7 @@ describe("courseTabUtils tests", () => {
       "sections",
       "assignments",
       "new-assignments",
+      "emails",
       "jobs",
       "downloads",
       "dokku",
