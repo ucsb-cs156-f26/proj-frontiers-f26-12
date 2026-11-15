@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <link rel="stylesheet" type="text/css" href="../style.css">
+</head>
+<body>
+
+
+<h1>CourseStaffCsvImportService.java</h1>
+
+<table class="src">
+
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_1'/>
+1
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_1'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>package edu.ucsb.cs156.frontiers.services;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_2'/>
+2
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_2'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''></span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_3'/>
+3
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_3'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import edu.ucsb.cs156.frontiers.entities.Course;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_4'/>
+4
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_4'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import edu.ucsb.cs156.frontiers.entities.CourseStaff;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_5'/>
+5
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_5'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import edu.ucsb.cs156.frontiers.enums.OrgStatus;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_6'/>
+6
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_6'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_7'/>
+7
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_7'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import lombok.RequiredArgsConstructor;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_8'/>
+8
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_8'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import org.springframework.stereotype.Service;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_9'/>
+9
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_9'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import org.springframework.transaction.annotation.Propagation;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_10'/>
+10
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_10'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>import org.springframework.transaction.annotation.Transactional;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_11'/>
+11
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_11'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''></span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_12'/>
+12
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_12'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>@Service</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_13'/>
+13
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_13'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>@RequiredArgsConstructor</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_14'/>
+14
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_14'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>public class CourseStaffCsvImportService {</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_15'/>
+15
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_15'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>  private final CourseStaffRepository courseStaffRepository;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_16'/>
+16
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_16'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>  private final UpdateUserService updateUserService;</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_17'/>
+17
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_17'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''></span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_18'/>
+18
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_18'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>  // Commit each row independently. A failed insert or account attachment must roll back only this</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_19'/>
+19
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_19'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>  // row, and the caller must catch database conflicts after this transaction has rolled back.</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_20'/>
+20
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_20'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>  @Transactional(propagation = Propagation.REQUIRES_NEW)</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_21'/>
+21
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_21'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>  public void importStaff(Course course, String firstName, String lastName, String email) {</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_22'/>
+22
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_22'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>    CourseStaff staff =</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_23'/>
+23
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_23'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>        CourseStaff.builder()</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_24'/>
+24
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_24'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>            .course(course)</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_25'/>
+25
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_25'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>            .firstName(firstName)</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_26'/>
+26
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_26'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>            .lastName(lastName)</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_27'/>
+27
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_27'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>            .email(email)</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_28'/>
+28
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_28'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>            .orgStatus(</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_29'/>
+29
+</td>
+<td class='killed'>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_29'>1</a>
+<span>
+1. importStaff : negated conditional &rarr; KILLED<br/>
+
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class='killed'>                course.getInstallationId() == null ? OrgStatus.PENDING : OrgStatus.JOINCOURSE)</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_30'/>
+30
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_30'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>            .build();</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_31'/>
+31
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_31'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>    CourseStaff saved = courseStaffRepository.saveAndFlush(staff);</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_32'/>
+32
+</td>
+<td class='killed'>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_32'>1</a>
+<span>
+1. importStaff : removed call to edu/ucsb/cs156/frontiers/services/UpdateUserService::attachUserToCourseStaff &rarr; KILLED<br/>
+
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class='killed'>    updateUserService.attachUserToCourseStaff(saved);</span></pre></td></tr>
+
+<tr>
+<td class='covered'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_33'/>
+33
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_33'></a>
+<span>
+</span>
+</span>
+</td>
+<td class='covered'><pre><span  class=''>  }</span></pre></td></tr>
+
+<tr>
+<td class='na'>
+<a name='org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_34'/>
+34
+</td>
+<td class=''>
+<span class='pop'>
+<a href='#grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_34'></a>
+<span>
+</span>
+</span>
+</td>
+<td class=''><pre><span  class=''>}</span></pre></td></tr>
+
+
+
+<tr><td></td><td></td><td><h2>Mutations</h2></td></tr>
+
+<tr>
+<td><a href='#org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_29'>29</a></td> 
+<td></td>
+<td>
+
+<a name='grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_29'/> 
+
+<p class='KILLED'><span class='pop'>1.<span><b>1</b><br/><b>Location : </b>importStaff<br/><b>Killed by : </b>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:instructor_can_upload_staff_csv()]</span></span> negated conditional &rarr; KILLED</span>
+</div> 
+</td>
+</tr>
+<tr>
+<td><a href='#org.pitest.mutationtest.report.html.SourceFile@7b2a10e8_32'>32</a></td> 
+<td></td>
+<td>
+
+<a name='grouporg.pitest.mutationtest.report.html.SourceFile@7b2a10e8_32'/> 
+
+<p class='KILLED'><span class='pop'>1.<span><b>1</b><br/><b>Location : </b>importStaff<br/><b>Killed by : </b>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:a_concurrent_duplicate_is_reported_and_later_rows_are_imported()]</span></span> removed call to edu/ucsb/cs156/frontiers/services/UpdateUserService::attachUserToCourseStaff &rarr; KILLED</span>
+</div> 
+</td>
+</tr>
+
+</table>
+
+
+<h2>Active mutators</h2>
+<ul>
+<li class='mutator'>CONDITIONALS_BOUNDARY</li>
+<li class='mutator'>EMPTY_RETURNS</li>
+<li class='mutator'>FALSE_RETURNS</li>
+<li class='mutator'>INCREMENTS</li>
+<li class='mutator'>INVERT_NEGS</li>
+<li class='mutator'>MATH</li>
+<li class='mutator'>NEGATE_CONDITIONALS</li>
+<li class='mutator'>NULL_RETURNS</li>
+<li class='mutator'>PRIMITIVE_RETURNS</li>
+<li class='mutator'>TRUE_RETURNS</li>
+<li class='mutator'>VOID_METHOD_CALLS</li>
+
+</ul>
+
+<h2>Tests examined</h2>
+<ul>
+<li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:maximum_length_fields_are_accepted()] (1 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:upload_strips_whitespace_from_fields()] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:utf8_quoted_fields_extra_columns_and_case_distinct_emails_still_work()] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#3] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#4] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#7] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#8] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#5] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#6] (2 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#2] (3 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:a_concurrent_duplicate_is_reported_and_later_rows_are_imported()] (3 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:instructor_can_upload_staff_csv()] (5 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:mixed_rows_save_valid_staff_and_identify_each_rejected_record()] (3 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[test-template:invalid_fields_are_reported_and_a_later_valid_row_is_still_imported(java.lang.String, java.lang.String)]/[test-template-invocation:#1] (7 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:instructor_can_upload_staff_csv_with_installation_id()] (8 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCsvImportDatabaseTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCsvImportDatabaseTests]/[method:duplicates_within_a_file_are_rejected_but_other_courses_and_case_distinct_emails_work()] (37 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCsvImportDatabaseTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCsvImportDatabaseTests]/[method:a_real_constraint_failure_preserves_existing_staff_and_rows_before_and_after_it()] (56 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCsvImportDatabaseTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCsvImportDatabaseTests]/[method:account_attachment_failure_rolls_back_only_that_row()] (171 ms)</li><li>edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests.[engine:junit-jupiter]/[class:edu.ucsb.cs156.frontiers.controllers.CourseStaffCSVControllerTests]/[method:unrelated_database_failure_is_not_misreported_as_a_duplicate()] (3 ms)</li>
+</ul>
+
+<br/>
+
+Report generated by <a href='https://pitest.org'>PIT</a> 1.30.0 <a href='https://github.com/sponsors/hcoles'>support</a>
+
+</body>
+</html>
