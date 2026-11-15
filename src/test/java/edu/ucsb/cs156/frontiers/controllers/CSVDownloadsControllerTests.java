@@ -15,6 +15,7 @@ import edu.ucsb.cs156.frontiers.ControllerTestCase;
 import edu.ucsb.cs156.frontiers.annotations.WithInstructorCoursePermissions;
 import edu.ucsb.cs156.frontiers.entities.Course;
 import edu.ucsb.cs156.frontiers.entities.CourseOption;
+import edu.ucsb.cs156.frontiers.entities.CourseStaff;
 import edu.ucsb.cs156.frontiers.entities.RosterStudent;
 import edu.ucsb.cs156.frontiers.entities.Section;
 import edu.ucsb.cs156.frontiers.enums.OrgStatus;
@@ -23,6 +24,7 @@ import edu.ucsb.cs156.frontiers.enums.School;
 import edu.ucsb.cs156.frontiers.models.RosterStudentDTO;
 import edu.ucsb.cs156.frontiers.repositories.CourseOptionRepository;
 import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.SectionRepository;
 import edu.ucsb.cs156.frontiers.services.RosterStudentDTOService;
@@ -54,6 +56,9 @@ public class CSVDownloadsControllerTests extends ControllerTestCase {
 
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   CourseRepository courseRepository;
+
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
+  CourseStaffRepository courseStaffRepository;
 
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   RosterStudentRepository rosterStudentRepository;
@@ -684,5 +689,83 @@ public class CSVDownloadsControllerTests extends ControllerTestCase {
 
     assertEquals(
         expectedResponse, response.getResponse().getContentAsString().replace("\r\n", "\n"));
+  }
+
+  @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void test_courseStaff_no_such_course() throws Exception {
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.empty());
+
+    MvcResult response = mockMvc.perform(get("/api/csv/coursestaff?courseId=1")).andReturn();
+
+    String actualResponse = response.getResponse().getContentAsString();
+    Map<String, String> errorResponse =
+        objectMapper.readValue(actualResponse, new TypeReference<Map<String, String>>() {});
+    Map<String, String> expectedResponse =
+        Map.of("message", "Course with id 1 not found", "type", "EntityNotFoundException");
+    assertEquals(expectedResponse, errorResponse);
+    assertEquals(HttpStatus.NOT_FOUND.value(), response.getResponse().getStatus());
+  }
+
+  @Test
+  @WithMockUser(roles = {"USER"})
+  public void test_courseStaff_unauthorized() throws Exception {
+    mockMvc.perform(get("/api/csv/coursestaff?courseId=1")).andExpect(status().isForbidden());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void test_courseStaff_csv_success() throws Exception {
+    Course course =
+        Course.builder()
+            .id(1L)
+            .courseName("ucsb-cs156-s25")
+            .term("S25")
+            .school(School.UCSB)
+            .build();
+
+    CourseStaff staff1 =
+        CourseStaff.builder()
+            .id(10L)
+            .firstName("Chris")
+            .lastName("Gaucho")
+            .email("cgaucho@example.org")
+            .build();
+
+    CourseStaff staff2 =
+        CourseStaff.builder()
+            .id(11L)
+            .firstName("Lauren")
+            .lastName("Del Playa")
+            .email("ldelplaya@ucsb.edu")
+            .build();
+
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
+    when(courseStaffRepository.findByCourseId(eq(1L))).thenReturn(List.of(staff1, staff2));
+
+    String expectedResponse =
+        """
+        firstName,lastName,email
+        Chris,Gaucho,cgaucho@example.org
+        Lauren,Del Playa,ldelplaya@ucsb.edu
+        """;
+
+    MvcResult response =
+        mockMvc
+            .perform(get("/api/csv/coursestaff?courseId=1"))
+            .andExpect(request().asyncStarted())
+            .andDo(MvcResult::getAsyncResult)
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(courseStaffRepository, times(1)).findByCourseId(eq(1L));
+    assertEquals(
+        expectedResponse, response.getResponse().getContentAsString().replace("\r\n", "\n"));
+    assertEquals(
+        "attachment;filename=ucsb-cs156-s25_staff.csv",
+        response.getResponse().getHeader("Content-Disposition"));
+    assertEquals("text/csv; charset=UTF-8", response.getResponse().getContentType());
+    assertEquals(
+        "Content-Disposition", response.getResponse().getHeader("Access-Control-Expose-Headers"));
   }
 }
