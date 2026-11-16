@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -427,6 +430,35 @@ public class RepositoryControllerTests extends ControllerTestCase {
 
   @Test
   @WithInstructorCoursePermissions
+  public void delete_repos_blank_prefix() throws Exception {
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/repos").with(csrf()).param("courseId", "2").param("prefix", ""))
+            .andExpect(status().isBadRequest())
+            .andReturn();
+    Map<String, Object> json = responseToJson(response);
+    assertEquals("IllegalArgumentException", json.get("type"));
+    assertEquals("prefix must not be blank", json.get("message"));
+    verify(service, never()).runAsJob(any());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void delete_repos_whitespace_prefix() throws Exception {
+    MvcResult response =
+        mockMvc
+            .perform(
+                delete("/api/repos").with(csrf()).param("courseId", "2").param("prefix", "   "))
+            .andExpect(status().isBadRequest())
+            .andReturn();
+    Map<String, Object> json = responseToJson(response);
+    assertEquals("IllegalArgumentException", json.get("type"));
+    assertEquals("prefix must not be blank", json.get("message"));
+    verify(service, never()).runAsJob(any());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
   public void delete_repos_fires_with_instructor() throws Exception {
     Course course =
         Course.builder()
@@ -445,6 +477,11 @@ public class RepositoryControllerTests extends ControllerTestCase {
                 delete("/api/repos").with(csrf()).param("courseId", "2").param("prefix", "lab01"))
             .andExpect(status().isOk())
             .andReturn();
+
+    ArgumentCaptor<DeleteRepoJob> captor = ArgumentCaptor.forClass(DeleteRepoJob.class);
+    verify(service).runAsJob(captor.capture());
+    assertEquals(2L, captor.getValue().getCourseId());
+    assertEquals("lab01", captor.getValue().getPrefix());
 
     String expectedJson = objectMapper.writeValueAsString(job);
     String actualJson = response.getResponse().getContentAsString();

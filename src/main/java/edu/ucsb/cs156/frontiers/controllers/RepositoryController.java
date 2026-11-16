@@ -136,6 +136,9 @@ public class RepositoryController extends ApiController {
               example = "lab01")
           @RequestParam
           String prefix) {
+    if (prefix.isBlank()) {
+      throw new IllegalArgumentException("prefix must not be blank");
+    }
     Course course =
         courseRepository
             .findById(courseId)
