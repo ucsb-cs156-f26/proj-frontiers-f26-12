@@ -1,6 +1,6 @@
 import React from "react";
 import OurTable, { ButtonColumn } from "main/components/OurTable";
-import { Tooltip, OverlayTrigger } from "react-bootstrap";
+import { Tooltip, OverlayTrigger, Button } from "react-bootstrap";
 
 import { useBackendMutation } from "main/utils/useBackend";
 import { hasRole } from "main/utils/currentUser";
@@ -16,6 +16,7 @@ export default function CourseStaffTable({
   courseId,
   testIdPrefix = "CourseStaffTable",
   isInstructor = true,
+  instructorEmail,
 }) {
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [editStaff, setEditStaff] = React.useState(null);
@@ -215,11 +216,27 @@ export default function CourseStaffTable({
     },
   });
 
-  if (isInstructor && hasRole(currentUser, "ROLE_INSTRUCTOR")) {
+    if (isInstructor && hasRole(currentUser, "ROLE_INSTRUCTOR")) {
     columns.push(ButtonColumn("Edit", "primary", editCallback, testIdPrefix));
-    columns.push(
-      ButtonColumn("Delete", "danger", deleteCallback, testIdPrefix),
-    );
+    columns.push({
+      header: "Delete",
+      id: "Delete",
+      cell: ({ cell }) => {
+        const cellTestId = `${testIdPrefix}-cell-row-${cell.row.index}-col-Delete`;
+        if (instructorEmail && cell.row.original.email === instructorEmail) {
+          return <span data-testid={`${cellTestId}-instructor`}>Instructor</span>;
+        }
+        return (
+          <Button
+            variant="danger"
+            onClick={() => deleteCallback(cell)}
+            data-testid={`${cellTestId}-button`}
+          >
+            Delete
+          </Button>
+        );
+      },
+    });
   }
 
   return (
