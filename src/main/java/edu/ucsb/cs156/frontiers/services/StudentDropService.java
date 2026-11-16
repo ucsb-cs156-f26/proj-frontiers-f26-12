@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Single place for everything that must happen when a student is dropped from a course. Currently
@@ -21,12 +22,14 @@ public class StudentDropService {
     this.teamMemberRepository = teamMemberRepository;
   }
 
+  @Transactional
   public void handleStudentsDropped(Collection<RosterStudent> students) {
     for (RosterStudent student : students) {
       handleStudentDropped(student);
     }
   }
 
+  @Transactional
   public void handleStudentDropped(RosterStudent student) {
     removeFromTeams(student);
   }
@@ -36,10 +39,22 @@ public class StudentDropService {
       return;
     }
     List<TeamMember> memberships = new ArrayList<>(student.getTeamMembers());
-    for (TeamMember teamMember : memberships) {
-      teamMember.getTeam().getTeamMembers().remove(teamMember);
-      student.getTeamMembers().remove(teamMember);
+    for (TeamMember membership : memberships) {
+      // Delete through the persistent (managed) copy, removing it from its managed parents first.
+      // The parents' collections cascade, so otherwise Hibernate re-saves the deleted row.
+      teamMemberRepository
+          .findById(membership.getId())
+          .ifPresent(
+              managed -> {
+                managed.getTeam().getTeamMembers().remove(managed);
+                managed.getRosterStudent().getTeamMembers().remove(managed);
+                teamMemberRepository.delete(managed);
+              });
+      membership.getTeam().getTeamMembers().remove(membership);
     }
-    teamMemberRepository.deleteAll(memberships);
+    // Replace the list instead of removing from it: a loaded Hibernate collection keeps a snapshot
+    // of its old contents, and merging a detached student whose snapshot still lists the deleted
+    // memberships fails with "Unable to find TeamMember".
+    student.setTeamMembers(new ArrayList<>());
   }
 }

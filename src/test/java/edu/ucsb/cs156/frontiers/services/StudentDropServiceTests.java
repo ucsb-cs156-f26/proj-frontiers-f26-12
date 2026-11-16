@@ -9,6 +9,7 @@ import edu.ucsb.cs156.frontiers.entities.TeamMember;
 import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -27,7 +28,7 @@ public class StudentDropServiceTests {
 
   @Test
   public void removesStudentFromAllTeams() {
-    RosterStudent chris = RosterStudent.builder().id(1L).email("chris@example.com").build();
+    RosterStudent chris = RosterStudent.builder().id(1L).build();
     Team team1 = Team.builder().id(10L).name("t1").teamMembers(new ArrayList<>()).build();
     Team team2 = Team.builder().id(11L).name("t2").teamMembers(new ArrayList<>()).build();
     TeamMember tm1 = TeamMember.builder().id(100L).rosterStudent(chris).team(team1).build();
@@ -35,13 +36,16 @@ public class StudentDropServiceTests {
     team1.getTeamMembers().add(tm1);
     team2.getTeamMembers().add(tm2);
     chris.setTeamMembers(new ArrayList<>(List.of(tm1, tm2)));
+    when(teamMemberRepository.findById(100L)).thenReturn(Optional.of(tm1));
+    when(teamMemberRepository.findById(101L)).thenReturn(Optional.of(tm2));
 
     studentDropService.handleStudentDropped(chris);
 
     assertTrue(chris.getTeamMembers().isEmpty());
     assertTrue(team1.getTeamMembers().isEmpty());
     assertTrue(team2.getTeamMembers().isEmpty());
-    verify(teamMemberRepository).deleteAll(List.of(tm1, tm2));
+    verify(teamMemberRepository).delete(tm1);
+    verify(teamMemberRepository).delete(tm2);
   }
 
   @Test
@@ -54,12 +58,30 @@ public class StudentDropServiceTests {
     team.getTeamMembers().addAll(List.of(chrisTm, danaTm));
     chris.setTeamMembers(new ArrayList<>(List.of(chrisTm)));
     dana.setTeamMembers(new ArrayList<>(List.of(danaTm)));
+    when(teamMemberRepository.findById(100L)).thenReturn(Optional.of(chrisTm));
 
     studentDropService.handleStudentDropped(chris);
 
     assertEquals(List.of(danaTm), team.getTeamMembers());
     assertEquals(List.of(danaTm), dana.getTeamMembers());
-    verify(teamMemberRepository).deleteAll(List.of(chrisTm));
+    verify(teamMemberRepository).delete(chrisTm);
+    verify(teamMemberRepository, never()).delete(danaTm);
+  }
+
+  @Test
+  public void stillCleansDetachedCopiesIfRowAlreadyGone() {
+    RosterStudent chris = RosterStudent.builder().id(1L).build();
+    Team team = Team.builder().id(10L).teamMembers(new ArrayList<>()).build();
+    TeamMember tm = TeamMember.builder().id(100L).rosterStudent(chris).team(team).build();
+    team.getTeamMembers().add(tm);
+    chris.setTeamMembers(new ArrayList<>(List.of(tm)));
+    when(teamMemberRepository.findById(100L)).thenReturn(Optional.empty());
+
+    studentDropService.handleStudentDropped(chris);
+
+    assertTrue(chris.getTeamMembers().isEmpty());
+    assertTrue(team.getTeamMembers().isEmpty());
+    verify(teamMemberRepository, never()).delete(any());
   }
 
   @Test
@@ -70,17 +92,10 @@ public class StudentDropServiceTests {
   }
 
   @Test
-  public void studentWithNoTeamsIsNoOp() {
-    RosterStudent student = RosterStudent.builder().id(1L).teamMembers(new ArrayList<>()).build();
-    studentDropService.handleStudentDropped(student);
-    verify(teamMemberRepository).deleteAll(List.of());
-  }
-
-  @Test
   public void handlesMultipleStudents() {
     RosterStudent a = RosterStudent.builder().id(1L).teamMembers(new ArrayList<>()).build();
     RosterStudent b = RosterStudent.builder().id(2L).teamMembers(new ArrayList<>()).build();
     studentDropService.handleStudentsDropped(List.of(a, b));
-    verify(teamMemberRepository, times(2)).deleteAll(List.of());
+    verifyNoInteractions(teamMemberRepository);
   }
 }
