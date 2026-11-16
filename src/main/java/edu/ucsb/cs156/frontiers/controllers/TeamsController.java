@@ -165,7 +165,7 @@ public class TeamsController extends ApiController {
       TeamSourceType sourceType = getRosterSourceType(headers);
       List<String[]> myEntries = csvReader.readAll();
       for (String[] row : myEntries) {
-        if (row.length == 1 && row[0].isBlank()) {
+        if (String.join("", row).isBlank()) {
           // a blank line in the file: nothing to do
           continue;
         }
