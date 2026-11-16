@@ -187,6 +187,11 @@ public class CourseStaffController extends ApiController {
             .orElseThrow(() -> new EntityNotFoundException(CourseStaff.class, id));
     Course course = staffMember.getCourse();
 
+    if (course.getInstructorEmail() != null
+        && course.getInstructorEmail().equals(staffMember.getEmail())) {
+      throw new IllegalArgumentException("you cannot delete the instructor as a staff member");
+    }
+
     boolean orgRemovalAttempted = false;
     boolean orgRemovalSuccessful = false;
     String orgRemovalErrorMessage = null;

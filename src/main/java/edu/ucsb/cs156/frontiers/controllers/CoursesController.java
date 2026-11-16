@@ -20,6 +20,7 @@ import edu.ucsb.cs156.frontiers.repositories.InstructorRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasApiTokenSecurityService;
+import edu.ucsb.cs156.frontiers.services.InstructorStaffService;
 import edu.ucsb.cs156.frontiers.services.OrganizationLinkerService;
 import edu.ucsb.cs156.jobs.repositories.JobsRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -65,6 +66,8 @@ public class CoursesController extends ApiController {
 
   @Autowired private OrganizationLinkerService linkerService;
 
+  @Autowired private InstructorStaffService instructorStaffService;
+
   @Autowired private JobsRepository jobsRepository;
 
   /**
@@ -97,6 +100,8 @@ public class CoursesController extends ApiController {
             .canvasCourseId(canvasCourseId)
             .build();
     Course savedCourse = courseRepository.save(course);
+
+    instructorStaffService.ensureInstructorIsStaff(savedCourse);
 
     return new InstructorCourseView(savedCourse);
   }
@@ -436,6 +441,8 @@ public class CoursesController extends ApiController {
 
     course.setInstructorEmail(instructorEmail);
     Course savedCourse = courseRepository.save(course);
+
+    instructorStaffService.ensureInstructorIsStaff(savedCourse);
 
     return new InstructorCourseView(savedCourse);
   }
