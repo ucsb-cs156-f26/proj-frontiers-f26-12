@@ -165,7 +165,7 @@ import org.springframework.web.server.ResponseStatusException;
 <span class="fc" id="L165">      TeamSourceType sourceType = getRosterSourceType(headers);</span>
 <span class="fc" id="L166">      List&lt;String[]&gt; myEntries = csvReader.readAll();</span>
 <span class="fc bfc" id="L167" title="All 2 branches covered.">      for (String[] row : myEntries) {</span>
-<span class="pc bpc" id="L168" title="1 of 4 branches missed.">        if (row.length == 1 &amp;&amp; row[0].isBlank()) {</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (String.join(&quot;&quot;, row).isBlank()) {</span>
           // a blank line in the file: nothing to do
 <span class="fc" id="L170">          continue;</span>
         }
