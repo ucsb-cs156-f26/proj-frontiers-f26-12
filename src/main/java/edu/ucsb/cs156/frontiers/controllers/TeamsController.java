@@ -62,7 +62,16 @@ public class TeamsController extends ApiController {
   }
 
   public record TeamCreationResponse(
-      TeamSourceType typeMatched, Integer created, Integer existing, List<String> rejected) {}
+      TeamSourceType typeMatched,
+      Integer created,
+      Integer existing,
+      List<String> rejected,
+      List<String> noTeam) {
+    public TeamCreationResponse(
+        TeamSourceType typeMatched, Integer created, Integer existing, List<String> rejected) {
+      this(typeMatched, created, existing, rejected, List.of());
+    }
+  }
 
   public record TeamMemberMapping(
       Long teamId,
@@ -146,6 +155,7 @@ public class TeamsController extends ApiController {
     int counts[] = {0, 0};
 
     List<String> failed = new ArrayList<>();
+    List<String> noTeam = new ArrayList<>();
 
     try (InputStream inputStream = new BufferedInputStream(file.getInputStream());
         InputStreamReader reader = new InputStreamReader(inputStream);
@@ -155,6 +165,15 @@ public class TeamsController extends ApiController {
       TeamSourceType sourceType = getRosterSourceType(headers);
       List<String[]> myEntries = csvReader.readAll();
       for (String[] row : myEntries) {
+        if (row.length == 1 && row[0].isBlank()) {
+          // a blank line in the file: nothing to do
+          continue;
+        }
+        if (row[0].isBlank()) {
+          // fail for this member only: remember the email and carry on with the other rows
+          noTeam.add(row[1].trim());
+          continue;
+        }
         TeamMemberResult rowResult = fromCSVRow(row, sourceType, course);
         if (rowResult.status == TeamMemberStatus.MISSING) {
           failed.add(rowResult.rejectedEmail);
@@ -167,11 +186,12 @@ public class TeamsController extends ApiController {
               sourceType,
               counts[TeamMemberStatus.CREATED.ordinal()],
               counts[TeamMemberStatus.EXISTS.ordinal()],
-              failed);
+              failed,
+              noTeam);
 
       launchPushTeamsToGithubJob(courseId);
 
-      if (!failed.isEmpty()) {
+      if (!failed.isEmpty() || !noTeam.isEmpty()) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
       } else {
         return ResponseEntity.ok(response);
