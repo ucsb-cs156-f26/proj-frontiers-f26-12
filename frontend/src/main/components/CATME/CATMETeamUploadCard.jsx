@@ -12,7 +12,7 @@ const uploadConfig = {
   errorMessage: "Unable to upload teams. Please try again.",
 };
 
-export default function CATMETeamUploadCard({ courseId }) {
+export default function CATMETeamUploadCard({ courseId, courseViewPath }) {
   return (
     <Card as="section" aria-label="CATME team upload" className="mt-4">
       <Card.Header as="h2" className="h5">
@@ -44,7 +44,7 @@ export default function CATMETeamUploadCard({ courseId }) {
                 <p>
                   {result.message}. Team creation is running in the background.
                 </p>
-                <a href={`/instructor/courses/${courseId}?tab=jobs`}>
+                <a href={`/${courseViewPath}/courses/${courseId}?tab=jobs`}>
                   View progress in the Jobs tab
                 </a>
               </Alert>

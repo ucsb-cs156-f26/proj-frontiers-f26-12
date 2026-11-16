@@ -10,14 +10,15 @@ const url = "/api/catme/createteams";
 const file = new File(["CATME team export"], "teams.csv", { type: "text/csv" });
 let axiosMock;
 
-function renderTab() {
+function renderTab(props = {}) {
   const client = new QueryClient();
   const wrapper = ({ children }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return render(<CATMETabComponent courseId={7} testIdPrefix="CATME" />, {
-    wrapper,
-  });
+  return render(
+    <CATMETabComponent courseId={7} testIdPrefix="CATME" {...props} />,
+    { wrapper },
+  );
 }
 
 async function upload(selectedFile = file) {
@@ -85,6 +86,15 @@ test("sends a single multipart request and shows the launched job with the corre
   expect(axiosMock.history.post[0].data.get("file")).toBe(file);
   expect(axiosMock.history.put).toHaveLength(0);
   expect(axiosMock.history.delete).toHaveLength(0);
+});
+
+test("links to the staff Jobs tab when the course uses the staff view", async () => {
+  axiosMock.onPost(url).reply(200, { message: "Job Launched: 42" });
+  renderTab({ courseViewPath: "staff" });
+  await upload();
+  expect(
+    await screen.findByRole("link", { name: "View progress in the Jobs tab" }),
+  ).toHaveAttribute("href", "/staff/courses/7?tab=jobs");
 });
 
 test("reuses the audit tables for discrepancies and allows a corrected export", async () => {

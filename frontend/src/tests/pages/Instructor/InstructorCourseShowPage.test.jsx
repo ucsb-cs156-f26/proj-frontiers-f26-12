@@ -1049,14 +1049,16 @@ describe("InstructorCourseShowPage tests", () => {
       await screen.findByRole("tab", { name: "Sections" }),
     ).toBeInTheDocument();
   });
-  const renderCourse7 = () =>
+  const renderCourse7 = (courseViewPath = "instructor") =>
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/instructor/courses/7"]}>
+        <MemoryRouter initialEntries={[`/${courseViewPath}/courses/7`]}>
           <Routes>
             <Route
-              path="/instructor/courses/:id"
-              element={<InstructorCourseShowPage />}
+              path={`/${courseViewPath}/courses/:id`}
+              element={
+                <InstructorCourseShowPage courseViewPath={courseViewPath} />
+              }
             />
           </Routes>
         </MemoryRouter>
@@ -1492,6 +1494,36 @@ describe("InstructorCourseShowPage tests", () => {
         "catme",
       );
     });
+
+    test.each(["instructor", "staff"])(
+      "uses the %s course view path for the CATME job link",
+      async (courseViewPath) => {
+        setupCATME(true);
+        axiosMock
+          .onPost("/api/catme/createteams")
+          .reply(200, { message: "Job Launched: 42" });
+        // Exercise the shared page's path independently of the staff wrapper,
+        // which currently hides CATME along with other optional tabs.
+        renderCourse7(courseViewPath);
+        fireEvent.click(await screen.findByRole("tab", { name: "CATME" }));
+        fireEvent.change(
+          screen.getByLabelText("CATME team assignments CSV file"),
+          {
+            target: {
+              files: [
+                new File(["CATME export"], "teams.csv", { type: "text/csv" }),
+              ],
+            },
+          },
+        );
+        fireEvent.click(screen.getByRole("button", { name: "Upload teams" }));
+        expect(
+          await screen.findByRole("link", {
+            name: "View progress in the Jobs tab",
+          }),
+        ).toHaveAttribute("href", `/${courseViewPath}/courses/7?tab=jobs`);
+      },
+    );
 
     test.each([false, undefined, "true"])(
       "hides CATME when the option is %s",

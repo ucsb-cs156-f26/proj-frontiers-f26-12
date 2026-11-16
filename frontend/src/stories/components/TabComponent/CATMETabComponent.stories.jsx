@@ -21,6 +21,11 @@ export const Default = {
   },
 };
 
+export const StaffJobsLink = {
+  ...Default,
+  args: { ...Default.args, courseViewPath: "staff" },
+};
+
 export const TeamUploadAuditDifferences = {
   ...Default,
   parameters: {
