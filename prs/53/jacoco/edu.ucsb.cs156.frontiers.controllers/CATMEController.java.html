@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CATMEController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.controllers</a> &gt; <span class="el_source">CATMEController.java</span></div><h1>CATMEController.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.controllers;
+
+import com.opencsv.CSVParser;
+import edu.ucsb.cs156.frontiers.entities.Course;
+import edu.ucsb.cs156.frontiers.entities.CourseOption;
+import edu.ucsb.cs156.frontiers.entities.RosterStudent;
+import edu.ucsb.cs156.frontiers.entities.Section;
+import edu.ucsb.cs156.frontiers.enums.CourseOptions;
+import edu.ucsb.cs156.frontiers.enums.RosterStatus;
+import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
+import edu.ucsb.cs156.frontiers.jobs.CreateTeamsFromCATMEJob;
+import edu.ucsb.cs156.frontiers.models.CATMEAuditResult;
+import edu.ucsb.cs156.frontiers.models.CATMEStudentAdd;
+import edu.ucsb.cs156.frontiers.models.CATMEStudentDrop;
+import edu.ucsb.cs156.frontiers.models.CATMEStudentUpdate;
+import edu.ucsb.cs156.frontiers.models.CATMETeamAssignment;
+import edu.ucsb.cs156.frontiers.repositories.CourseOptionRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
+import edu.ucsb.cs156.frontiers.repositories.SectionRepository;
+import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
+import edu.ucsb.cs156.frontiers.repositories.TeamRepository;
+import edu.ucsb.cs156.jobs.entities.Job;
+import edu.ucsb.cs156.jobs.services.JobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@Tag(name = &quot;CATME&quot;)
+@RequestMapping(&quot;/api/catme&quot;)
+@RestController
+<span class="fc" id="L54">public class CATMEController extends ApiController {</span>
+
+  @Autowired private RosterStudentRepository rosterStudentRepository;
+
+  @Autowired private CourseOptionRepository courseOptionRepository;
+
+  @Autowired private SectionRepository sectionRepository;
+
+  @Autowired private CourseRepository courseRepository;
+
+  @Autowired private TeamRepository teamRepository;
+
+  @Autowired private TeamMemberRepository teamMemberRepository;
+
+  @Autowired private JobService jobService;
+
+  public static final String CATME_AUDIT_HEADER_LINE_1 = &quot;Activity,Class,Term,Format,Instr,School&quot;;
+  public static final String CATME_AUDIT_HEADER_LINE_4 =
+      &quot;\&quot;Name\&quot;,\&quot;Student ID\&quot;,\&quot;Email\&quot;,\&quot;Section\&quot;,&quot;;
+  public static final String CATME_TEAM_HEADER_LINE_4 =
+      &quot;\&quot;Name\&quot;,\&quot;Student ID\&quot;,\&quot;Email\&quot;,\&quot;Section\&quot;,\&quot;Team Name\&quot;,&quot;;
+  public static final String CATME_AUDIT_SCORES_LINE_PREFIX = &quot;\&quot;Scores&quot;;
+  public static final String CATME_AUDIT_FORMAT_ERROR_MESSAGE =
+      &quot;The uploaded file was not in a recognized CATME TeamMaker CSV format.&quot;;
+  public static final String CATME_TEAM_FORMAT_ERROR_MESSAGE =
+      &quot;The CATME file has missing or ambiguous team assignments. Export a fresh TeamMaker file with a Team Name column or a Rater Practice section.&quot;;
+
+  /**
+   * Audit the roster for a course against a CATME TeamMaker CSV export, producing a list of
+   * students whose name and/or section should be updated in CATME, and a list of students who
+   * should be dropped from CATME because they are no longer enrolled (MANUAL or ROSTER status) in
+   * Frontiers, and enrolled students who need to be added to CATME.
+   *
+   * @param courseId the id of the course
+   * @param file the uploaded CATME TeamMaker CSV file
+   * @return a {@link CATMEAuditResult}, or a 422 error if the file is not in the expected format
+   * @throws IOException if the file cannot be read
+   */
+  @Operation(summary = &quot;Audit a course's roster against an uploaded CATME TeamMaker CSV file&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  @PostMapping(
+      value = &quot;/audit&quot;,
+      consumes = {&quot;multipart/form-data&quot;})
+  public ResponseEntity&lt;Object&gt; auditCatmeCSV(
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
+      @Parameter(name = &quot;file&quot;) @RequestParam(&quot;file&quot;) MultipartFile file)
+      throws IOException {
+
+    List&lt;String&gt; lines;
+<span class="fc" id="L103">    try (BufferedReader reader =</span>
+<span class="fc" id="L104">        new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {</span>
+<span class="fc" id="L105">      lines = reader.lines().collect(Collectors.toList());</span>
+    }
+
+<span class="fc" id="L108">    List&lt;CATMEStudentRow&gt; csvRows = parseCatmeAuditCSV(lines);</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">    if (csvRows == null) {</span>
+<span class="fc" id="L110">      return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)</span>
+<span class="fc" id="L111">          .body(genericMessage(CATME_AUDIT_FORMAT_ERROR_MESSAGE));</span>
+    }
+
+<span class="fc" id="L114">    return ResponseEntity.ok(audit(courseId, csvRows));</span>
+  }
+
+  /**
+   * Audit a course's roster against an uploaded CATME TeamMaker CSV file, exactly as {@link
+   * #auditCatmeCSV}; if the audit finds any issue, report it and stop. If the audit is clean,
+   * launch a job that creates the teams named in the file (in Frontiers only; nothing is pushed to
+   * GitHub) and adds each student to their team.
+   *
+   * @param courseId the id of the course
+   * @param file the uploaded CATME TeamMaker CSV file
+   * @return if the audit found issues, the {@link CATMEAuditResult}; otherwise a message &quot;Job
+   *     Launched: N&quot; where N is the id of the job; or a 422 error if the file is not in the
+   *     expected format
+   * @throws IOException if the file cannot be read
+   */
+  @Operation(
+      summary =
+          &quot;Audit a course's roster against a CATME TeamMaker CSV file and, if clean, launch a job that creates the teams in it&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  @PostMapping(
+      value = &quot;/createteams&quot;,
+      consumes = {&quot;multipart/form-data&quot;})
+  public ResponseEntity&lt;Object&gt; createTeamsFromCatmeCSV(
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
+      @Parameter(name = &quot;file&quot;) @RequestParam(&quot;file&quot;) MultipartFile file)
+      throws IOException {
+<span class="fc" id="L141">    Course course =</span>
+        courseRepository
+<span class="fc" id="L143">            .findById(courseId)</span>
+<span class="fc" id="L144">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+
+    List&lt;String&gt; lines;
+<span class="fc" id="L147">    try (BufferedReader reader =</span>
+<span class="fc" id="L148">        new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {</span>
+<span class="fc" id="L149">      lines = reader.lines().collect(Collectors.toList());</span>
+    }
+
+<span class="fc" id="L152">    List&lt;CATMEStudentRow&gt; csvRows = parseCatmeAuditCSV(lines);</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">    if (csvRows == null) {</span>
+<span class="fc" id="L154">      return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)</span>
+<span class="fc" id="L155">          .body(genericMessage(CATME_AUDIT_FORMAT_ERROR_MESSAGE));</span>
+    }
+
+<span class="fc" id="L158">    CATMEAuditResult auditResult = audit(courseId, csvRows);</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">    if (!auditResult.studentsToUpdate().isEmpty()</span>
+<span class="fc bfc" id="L160" title="All 2 branches covered.">        || !auditResult.studentsToDrop().isEmpty()</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        || !auditResult.studentsToAdd().isEmpty()) {</span>
+<span class="fc" id="L162">      return ResponseEntity.ok(auditResult);</span>
+    }
+
+<span class="fc" id="L165">    List&lt;CATMETeamAssignment&gt; assignments = parseTeamAssignments(lines, csvRows);</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">    if (assignments == null) {</span>
+<span class="fc" id="L167">      return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)</span>
+<span class="fc" id="L168">          .body(genericMessage(CATME_TEAM_FORMAT_ERROR_MESSAGE));</span>
+    }
+    CreateTeamsFromCATMEJob job =
+<span class="fc" id="L171">        CreateTeamsFromCATMEJob.builder()</span>
+<span class="fc" id="L172">            .course(course)</span>
+<span class="fc" id="L173">            .assignments(assignments)</span>
+<span class="fc" id="L174">            .courseRepository(courseRepository)</span>
+<span class="fc" id="L175">            .rosterStudentRepository(rosterStudentRepository)</span>
+<span class="fc" id="L176">            .teamRepository(teamRepository)</span>
+<span class="fc" id="L177">            .teamMemberRepository(teamMemberRepository)</span>
+<span class="fc" id="L178">            .build();</span>
+<span class="fc" id="L179">    Job launched = jobService.runAsJob(job);</span>
+<span class="fc" id="L180">    return ResponseEntity.ok(genericMessage(&quot;Job Launched: &quot; + launched.getId()));</span>
+  }
+
+  /**
+   * Compares the enrolled students of a course with the rows of a CATME file.
+   *
+   * @param courseId the id of the course
+   * @param csvRows the rows of the file
+   * @return the students to add to, update in, and drop from CATME
+   */
+  private CATMEAuditResult audit(Long courseId, List&lt;CATMEStudentRow&gt; csvRows) {
+<span class="fc" id="L191">    List&lt;RosterStudent&gt; enrolledStudents =</span>
+<span class="fc" id="L192">        StreamSupport.stream(rosterStudentRepository.findByCourseId(courseId).spliterator(), false)</span>
+<span class="fc" id="L193">            .filter(</span>
+                student -&gt;
+<span class="fc bfc" id="L195" title="All 2 branches covered.">                    student.getStudentId() != null</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">                        &amp;&amp; (student.getRosterStatus() == RosterStatus.MANUAL</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">                            || student.getRosterStatus() == RosterStatus.ROSTER))</span>
+<span class="fc" id="L198">            .toList();</span>
+
+<span class="fc" id="L200">    Map&lt;String, CATMEStudentRow&gt; csvRowsByStudentId =</span>
+<span class="fc" id="L201">        csvRows.stream()</span>
+<span class="fc" id="L202">            .collect(</span>
+<span class="fc" id="L203">                Collectors.toMap(CATMEStudentRow::studentId, row -&gt; row, (first, second) -&gt; first));</span>
+
+<span class="fc" id="L205">    Map&lt;String, String&gt; sectionToLabel = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L206">    Map&lt;String, String&gt; labelToSection = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L207">    boolean translateSections =</span>
+        courseOptionRepository
+<span class="fc" id="L209">            .findByCourseIdAndOption(courseId, CourseOptions.TRANSLATE_SECTIONS.name())</span>
+<span class="fc" id="L210">            .map(CourseOption::getEnabled)</span>
+<span class="fc" id="L211">            .orElse(false);</span>
+<span class="fc bfc" id="L212" title="All 2 branches covered.">    if (translateSections) {</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">      for (Section section : sectionRepository.findByCourseId(courseId)) {</span>
+<span class="fc" id="L214">        sectionToLabel.put(section.getSection(), section.getLabel());</span>
+<span class="fc" id="L215">        labelToSection.put(section.getLabel(), section.getSection());</span>
+<span class="fc" id="L216">      }</span>
+    }
+
+<span class="fc" id="L219">    List&lt;CATMEStudentUpdate&gt; studentsToUpdate = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">    for (RosterStudent student : enrolledStudents) {</span>
+<span class="fc" id="L221">      CATMEStudentRow row = csvRowsByStudentId.get(student.getStudentId());</span>
+<span class="fc bfc" id="L222" title="All 2 branches covered.">      if (row == null) {</span>
+<span class="fc" id="L223">        continue;</span>
+      }
+<span class="fc" id="L225">      String expectedName = formatStudentName(student.getLastName(), student.getFirstName());</span>
+<span class="fc bfc" id="L226" title="All 2 branches covered.">      if (!expectedName.equals(row.name())) {</span>
+<span class="fc" id="L227">        studentsToUpdate.add(</span>
+            new CATMEStudentUpdate(
+<span class="fc" id="L229">                student.getStudentId(), expectedName, &quot;Name&quot;, row.name(), expectedName));</span>
+      }
+<span class="fc bfc" id="L231" title="All 2 branches covered.">      String rosterSection = student.getSection() == null ? &quot;&quot; : student.getSection();</span>
+<span class="fc" id="L232">      String catmeSection = row.section();</span>
+<span class="fc" id="L233">      String reverseTranslatedCatmeSection =</span>
+<span class="fc" id="L234">          labelToSection.getOrDefault(catmeSection, catmeSection);</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">      if (!rosterSection.equals(reverseTranslatedCatmeSection)) {</span>
+<span class="fc" id="L236">        String expectedCatmeSection = sectionToLabel.getOrDefault(rosterSection, rosterSection);</span>
+<span class="fc" id="L237">        studentsToUpdate.add(</span>
+            new CATMEStudentUpdate(
+<span class="fc" id="L239">                student.getStudentId(),</span>
+                expectedName,
+                &quot;Section&quot;,
+                catmeSection,
+                expectedCatmeSection));
+      }
+<span class="fc" id="L245">    }</span>
+
+<span class="fc" id="L247">    Map&lt;String, RosterStudent&gt; enrolledStudentsByStudentId =</span>
+<span class="fc" id="L248">        enrolledStudents.stream()</span>
+<span class="fc" id="L249">            .collect(</span>
+<span class="fc" id="L250">                Collectors.toMap(</span>
+<span class="fc" id="L251">                    RosterStudent::getStudentId, student -&gt; student, (first, second) -&gt; first));</span>
+
+<span class="fc" id="L253">    List&lt;CATMEStudentDrop&gt; studentsToDrop = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">    for (CATMEStudentRow row : csvRows) {</span>
+<span class="fc bfc" id="L255" title="All 2 branches covered.">      if (!enrolledStudentsByStudentId.containsKey(row.studentId())) {</span>
+<span class="fc" id="L256">        studentsToDrop.add(</span>
+<span class="fc" id="L257">            new CATMEStudentDrop(row.studentId(), row.name(), row.email(), row.section()));</span>
+      }
+<span class="fc" id="L259">    }</span>
+
+<span class="fc" id="L261">    List&lt;CATMEStudentAdd&gt; studentsToAdd =</span>
+<span class="fc" id="L262">        enrolledStudentsByStudentId.values().stream()</span>
+<span class="fc bfc" id="L263" title="All 2 branches covered.">            .filter(student -&gt; !csvRowsByStudentId.containsKey(student.getStudentId()))</span>
+<span class="fc" id="L264">            .map(</span>
+                student -&gt; {
+<span class="fc bfc" id="L266" title="All 2 branches covered.">                  String section = student.getSection() == null ? &quot;&quot; : student.getSection();</span>
+<span class="fc" id="L267">                  return new CATMEStudentAdd(</span>
+<span class="fc" id="L268">                      student.getStudentId(),</span>
+<span class="fc" id="L269">                      formatStudentName(student.getLastName(), student.getFirstName()),</span>
+<span class="fc" id="L270">                      student.getEmail(),</span>
+<span class="fc" id="L271">                      sectionToLabel.getOrDefault(section, section));</span>
+                })
+<span class="fc" id="L273">            .toList();</span>
+
+<span class="fc" id="L275">    return new CATMEAuditResult(studentsToUpdate, studentsToDrop, studentsToAdd);</span>
+  }
+
+  /**
+   * Represents a single student row parsed from a CATME TeamMaker CSV export.
+   *
+   * @param name the student's name
+   * @param studentId the student's id
+   * @param email the student's email
+   * @param section the student's section
+   * @param teamName the student's team name (position 5 of the row), or an empty string if the row
+   *     has no such field
+   */
+<span class="fc" id="L288">  private record CATMEStudentRow(</span>
+      String name, String studentId, String email, String section, String teamName) {}
+
+  /**
+   * Parses the lines of an uploaded CATME TeamMaker CSV file, validating the expected format.
+   *
+   * @param lines the lines of the file
+   * @return the list of parsed student rows, or null if the file is not in the expected format
+   */
+  private static List&lt;CATMEStudentRow&gt; parseCatmeAuditCSV(List&lt;String&gt; lines) {
+<span class="fc bfc" id="L298" title="All 2 branches covered.">    if (lines.size() &lt; 4) {</span>
+<span class="fc" id="L299">      return null;</span>
+    }
+<span class="fc bfc" id="L301" title="All 2 branches covered.">    if (!lines.get(0).trim().equals(CATME_AUDIT_HEADER_LINE_1)) {</span>
+<span class="fc" id="L302">      return null;</span>
+    }
+    // line 1 (index 1) is intentionally ignored
+<span class="fc bfc" id="L305" title="All 2 branches covered.">    if (!lines.get(2).trim().isEmpty()) {</span>
+<span class="fc" id="L306">      return null;</span>
+    }
+<span class="fc" id="L308">    String header = lines.get(3).trim();</span>
+<span class="fc" id="L309">    boolean hasTeamNames = header.startsWith(CATME_TEAM_HEADER_LINE_4);</span>
+<span class="fc bfc" id="L310" title="All 2 branches covered.">    if (!header.startsWith(CATME_AUDIT_HEADER_LINE_4)) {</span>
+<span class="fc" id="L311">      return null;</span>
+    }
+
+<span class="fc" id="L314">    CSVParser csvParser = new CSVParser();</span>
+<span class="fc" id="L315">    List&lt;CATMEStudentRow&gt; rows = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">    for (int i = 4; i &lt; lines.size(); i++) {</span>
+<span class="fc" id="L317">      String line = lines.get(i);</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">      if (line.trim().isEmpty()) {</span>
+<span class="fc" id="L319">        break;</span>
+      }
+<span class="fc bfc" id="L321" title="All 2 branches covered.">      if (line.trim().startsWith(CATME_AUDIT_SCORES_LINE_PREFIX)) {</span>
+<span class="fc" id="L322">        continue;</span>
+      }
+      try {
+<span class="fc" id="L325">        String[] fields = csvParser.parseLine(line);</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        if (fields.length &lt; 4) {</span>
+<span class="fc" id="L327">          return null;</span>
+        }
+        // Survey exports may have Platform (rather than Team Name) in the fifth column.
+<span class="fc bfc" id="L330" title="All 4 branches covered.">        String teamName = hasTeamNames &amp;&amp; fields.length &gt; 4 ? fields[4] : &quot;&quot;;</span>
+<span class="fc" id="L331">        rows.add(new CATMEStudentRow(fields[0], fields[1], fields[2], fields[3], teamName));</span>
+<span class="fc" id="L332">      } catch (IOException e) {</span>
+<span class="fc" id="L333">        return null;</span>
+<span class="fc" id="L334">      }</span>
+    }
+<span class="fc" id="L336">    return rows;</span>
+  }
+
+  /** Rater Practice identifies students by name and section, rather than student ID. */
+<span class="fc" id="L340">  private record CATMEStudentKey(String name, String section) {}</span>
+
+  /**
+   * Reads team assignments after the roster audit succeeds. Supports both inline Team Name columns
+   * and the separate Rater Practice table in TeamFormation exports. Ambiguous or incomplete
+   * mappings are rejected before any job can run.
+   */
+  private static List&lt;CATMETeamAssignment&gt; parseTeamAssignments(
+      List&lt;String&gt; lines, List&lt;CATMEStudentRow&gt; rows) {
+<span class="fc bfc" id="L349" title="All 2 branches covered.">    if (rows.isEmpty()) {</span>
+<span class="fc" id="L350">      return null;</span>
+    }
+<span class="fc" id="L352">    var studentIds = new HashSet&lt;String&gt;();</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">    for (CATMEStudentRow row : rows) {</span>
+<span class="fc bfc" id="L354" title="All 2 branches covered.">      if (!studentIds.add(row.studentId())) {</span>
+<span class="fc" id="L355">        return null;</span>
+      }
+<span class="fc" id="L357">    }</span>
+<span class="fc bfc" id="L358" title="All 2 branches covered.">    if (lines.get(3).trim().startsWith(CATME_TEAM_HEADER_LINE_4)) {</span>
+<span class="fc" id="L359">      return rows.stream()</span>
+<span class="fc" id="L360">          .map(row -&gt; new CATMETeamAssignment(row.studentId(), row.name(), row.teamName()))</span>
+<span class="fc" id="L361">          .toList();</span>
+    }
+
+<span class="fc" id="L364">    Map&lt;CATMEStudentKey, CATMEStudentRow&gt; studentsByNameAndSection = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L365" title="All 2 branches covered.">    for (CATMEStudentRow row : rows) {</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">      if (studentsByNameAndSection.putIfAbsent(new CATMEStudentKey(row.name(), row.section()), row)</span>
+          != null) {
+<span class="fc" id="L368">        return null;</span>
+      }
+<span class="fc" id="L370">    }</span>
+<span class="fc" id="L371">    int start = -1;</span>
+<span class="fc bfc" id="L372" title="All 2 branches covered.">    for (int i = 4; i &lt; lines.size(); i++) {</span>
+<span class="fc bfc" id="L373" title="All 2 branches covered.">      if (lines.get(i).trim().equals(&quot;\&quot;Rater Practice\&quot;&quot;)) {</span>
+<span class="fc" id="L374">        start = i + 1;</span>
+<span class="fc" id="L375">        break;</span>
+      }
+    }
+<span class="fc bfc" id="L378" title="All 2 branches covered.">    if (start == -1</span>
+<span class="fc bfc" id="L379" title="All 2 branches covered.">        || start &gt;= lines.size()</span>
+<span class="fc bfc" id="L380" title="All 2 branches covered.">        || !lines.get(start).trim().startsWith(&quot;\&quot;Student\&quot;,\&quot;Team\&quot;,\&quot;Section\&quot;,&quot;)) {</span>
+<span class="fc" id="L381">      return null;</span>
+    }
+
+<span class="fc" id="L384">    CSVParser parser = new CSVParser();</span>
+<span class="fc" id="L385">    Map&lt;String, CATMETeamAssignment&gt; assignmentsById = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">    for (int i = start + 1; i &lt; lines.size(); i++) {</span>
+<span class="fc" id="L387">      String line = lines.get(i);</span>
+<span class="fc bfc" id="L388" title="All 2 branches covered.">      if (line.trim().isEmpty()) {</span>
+<span class="fc" id="L389">        break; // The following Comments table may contain multiline quoted fields.</span>
+      }
+      try {
+<span class="fc" id="L392">        String[] fields = parser.parseLine(line);</span>
+<span class="fc bfc" id="L393" title="All 2 branches covered.">        if (fields.length &lt; 3) {</span>
+<span class="fc" id="L394">          return null;</span>
+        }
+<span class="fc" id="L396">        CATMEStudentRow student =</span>
+<span class="fc" id="L397">            studentsByNameAndSection.get(new CATMEStudentKey(fields[0], fields[2]));</span>
+<span class="fc bfc" id="L398" title="All 2 branches covered.">        if (student == null</span>
+<span class="fc bfc" id="L399" title="All 2 branches covered.">            || assignmentsById.putIfAbsent(</span>
+<span class="fc" id="L400">                    student.studentId(),</span>
+<span class="fc" id="L401">                    new CATMETeamAssignment(student.studentId(), student.name(), fields[1]))</span>
+                != null) {
+<span class="fc" id="L403">          return null;</span>
+        }
+<span class="fc" id="L405">      } catch (IOException e) {</span>
+<span class="fc" id="L406">        return null;</span>
+<span class="fc" id="L407">      }</span>
+    }
+<span class="fc bfc" id="L409" title="All 2 branches covered.">    if (assignmentsById.size() != rows.size()) {</span>
+<span class="fc" id="L410">      return null;</span>
+    }
+<span class="fc" id="L412">    return rows.stream().map(row -&gt; assignmentsById.get(row.studentId())).toList();</span>
+  }
+
+  @Operation(summary = &quot;Convert CATME roster names into course emails&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  @PostMapping(value = &quot;/emails&quot;, consumes = &quot;text/plain&quot;, produces = &quot;text/plain&quot;)
+  public String getCourseEmailsFromCatme(
+      @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
+      @Parameter(name = &quot;payload&quot;) @RequestBody(required = false) String payload) {
+
+<span class="fc bfc" id="L422" title="All 2 branches covered.">    String normalizedPayload = payload == null ? &quot;&quot; : payload;</span>
+<span class="fc bfc" id="L423" title="All 2 branches covered.">    if (normalizedPayload.isBlank()) {</span>
+<span class="fc" id="L424">      return &quot;&quot;;</span>
+    }
+
+<span class="fc" id="L427">    Map&lt;String, String&gt; emailByName =</span>
+<span class="fc" id="L428">        StreamSupport.stream(rosterStudentRepository.findByCourseId(courseId).spliterator(), false)</span>
+<span class="fc" id="L429">            .filter(</span>
+                student -&gt;
+<span class="fc bfc" id="L431" title="All 2 branches covered.">                    student.getFirstName() != null</span>
+<span class="fc bfc" id="L432" title="All 2 branches covered.">                        &amp;&amp; student.getLastName() != null</span>
+<span class="fc bfc" id="L433" title="All 2 branches covered.">                        &amp;&amp; student.getEmail() != null)</span>
+<span class="fc" id="L434">            .collect(</span>
+<span class="fc" id="L435">                Collectors.toMap(</span>
+<span class="fc" id="L436">                    student -&gt; toLookupKey(student.getLastName(), student.getFirstName()),</span>
+                    RosterStudent::getEmail,
+<span class="fc" id="L438">                    (first, second) -&gt; first));</span>
+
+    // \\R handles all line endings and -1 preserves trailing blank lines.
+<span class="fc" id="L441">    return Arrays.stream(normalizedPayload.split(&quot;\\R&quot;, -1))</span>
+<span class="fc" id="L442">        .map(line -&gt; formatEmailResultLine(extractName(line), emailByName))</span>
+<span class="fc" id="L443">        .collect(Collectors.joining(&quot;\n&quot;));</span>
+  }
+
+  private static String extractName(String line) {
+<span class="fc" id="L447">    String trimmed = normalizeSpaces(line);</span>
+<span class="fc bfc" id="L448" title="All 2 branches covered.">    if (trimmed.isBlank()) {</span>
+<span class="fc" id="L449">      return &quot;&quot;;</span>
+    }
+
+    // CATME lines look like: &quot;LAST, FIRST MIDDLE &lt;score&gt; &lt;timestamp&gt;&quot;.
+<span class="fc" id="L453">    int dateStart = findDateTokenStart(trimmed);</span>
+<span class="fc bfc" id="L454" title="All 2 branches covered.">    if (dateStart == -1) {</span>
+<span class="fc" id="L455">      return trimmed;</span>
+    }
+
+<span class="fc" id="L458">    String beforeDate = trimmed.substring(0, dateStart).trim();</span>
+<span class="fc" id="L459">    int lastSpace = beforeDate.lastIndexOf(' ');</span>
+<span class="fc bfc" id="L460" title="All 2 branches covered.">    if (lastSpace == -1) {</span>
+<span class="fc" id="L461">      return beforeDate;</span>
+    }
+
+<span class="fc" id="L464">    String possibleScore = beforeDate.substring(lastSpace + 1);</span>
+<span class="fc bfc" id="L465" title="All 2 branches covered.">    if (possibleScore.chars().allMatch(Character::isDigit)) {</span>
+<span class="fc" id="L466">      return beforeDate.substring(0, lastSpace).trim();</span>
+    }
+<span class="fc" id="L468">    return beforeDate;</span>
+  }
+
+  private static String formatEmailResultLine(String name, Map&lt;String, String&gt; emailByName) {
+<span class="fc bfc" id="L472" title="All 2 branches covered.">    if (name.isBlank()) {</span>
+<span class="fc" id="L473">      return &quot;&quot;;</span>
+    }
+<span class="fc" id="L475">    String email = emailByName.get(toLookupKey(name));</span>
+<span class="fc bfc" id="L476" title="All 2 branches covered.">    if (email != null) {</span>
+<span class="fc" id="L477">      return email;</span>
+    }
+<span class="fc" id="L479">    return &quot;# NO EMAIL FOUND FOR &quot; + name;</span>
+  }
+
+  private static String toLookupKey(String lastName, String firstName) {
+<span class="fc" id="L483">    return toLookupKey(formatStudentName(lastName, firstName));</span>
+  }
+
+  private static String toLookupKey(String name) {
+<span class="fc" id="L487">    return normalizeSpaces(name).toUpperCase().replaceFirst(&quot;\\s*,\\s*&quot;, &quot;,&quot;);</span>
+  }
+
+  private static String formatStudentName(String lastName, String firstName) {
+<span class="fc bfc" id="L491" title="All 2 branches covered.">    String normalizedLastName = normalizeSpaces(lastName == null ? &quot;&quot; : lastName);</span>
+<span class="fc bfc" id="L492" title="All 2 branches covered.">    String normalizedFirstName = normalizeSpaces(firstName == null ? &quot;&quot; : firstName);</span>
+<span class="fc bfc" id="L493" title="All 2 branches covered.">    if (normalizedLastName.isBlank()) {</span>
+<span class="fc" id="L494">      return normalizedFirstName;</span>
+    }
+<span class="fc bfc" id="L496" title="All 2 branches covered.">    if (normalizedFirstName.isBlank()) {</span>
+<span class="fc" id="L497">      return normalizedLastName;</span>
+    }
+<span class="fc" id="L499">    return normalizedLastName + &quot;, &quot; + normalizedFirstName;</span>
+  }
+
+  private static String normalizeSpaces(String value) {
+<span class="fc" id="L503">    return value.replaceAll(&quot;\\s+&quot;, &quot; &quot;).trim();</span>
+  }
+
+  private static int findDateTokenStart(String value) {
+<span class="fc bfc" id="L507" title="All 2 branches covered.">    for (int i = 0; i + 10 &lt;= value.length(); i++) {</span>
+<span class="fc bfc" id="L508" title="All 2 branches covered.">      if (isDateToken(value, i)) {</span>
+<span class="fc" id="L509">        return i;</span>
+      }
+    }
+<span class="fc" id="L512">    return -1;</span>
+  }
+
+  private static boolean isDateToken(String value, int start) {
+<span class="fc bfc" id="L516" title="All 4 branches covered.">    if (start &gt; 0 &amp;&amp; value.charAt(start - 1) != ' ') {</span>
+<span class="fc" id="L517">      return false;</span>
+    }
+
+<span class="fc bfc" id="L520" title="All 2 branches covered.">    return Character.isDigit(value.charAt(start))</span>
+<span class="fc bfc" id="L521" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 1))</span>
+<span class="fc bfc" id="L522" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 2))</span>
+<span class="fc bfc" id="L523" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 3))</span>
+<span class="fc bfc" id="L524" title="All 2 branches covered.">        &amp;&amp; value.charAt(start + 4) == '-'</span>
+<span class="fc bfc" id="L525" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 5))</span>
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 6))</span>
+<span class="fc bfc" id="L527" title="All 2 branches covered.">        &amp;&amp; value.charAt(start + 7) == '-'</span>
+<span class="fc bfc" id="L528" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 8))</span>
+<span class="fc bfc" id="L529" title="All 2 branches covered.">        &amp;&amp; Character.isDigit(value.charAt(start + 9));</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
