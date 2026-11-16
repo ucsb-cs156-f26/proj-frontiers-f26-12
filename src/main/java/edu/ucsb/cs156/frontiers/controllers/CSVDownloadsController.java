@@ -284,6 +284,38 @@ public class CSVDownloadsController extends ApiController {
     return teamCsvResponse(courseId, columns, "teamtable", teamCsvService::writeTeamTableCsv);
   }
 
+  @Operation(
+      summary = "Download compact Name to Team and Team Table CSV File",
+      description =
+          "Returns a CSV file with the Name,Team table under a \"by name\" line,"
+              + " then the Team,Name table under a \"by team\" line, each using as many columns as needed. Names are sorted by first name and abbreviated as"
+              + " far as possible while remaining unique (first name; first name plus last initial;"
+              + " first name plus last name). Exact duplicate names are marked with an asterisk."
+              + " Students with no team are listed last with a blank team.",
+      responses = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "CSV file",
+            content =
+                @Content(
+                    mediaType = "text/csv",
+                    schema = @Schema(type = "string", format = "binary"))),
+        @ApiResponse(responseCode = "404", description = "Course not found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+      })
+  @GetMapping(value = "/nameandteam", produces = "text/csv")
+  @PreAuthorize("@CourseSecurity.hasManagePermissions(#root, #courseId)")
+  public ResponseEntity<StreamingResponseBody> nameAndTeamTablesCsv(
+      @Parameter(name = "courseId", description = "course id", example = "1") @RequestParam
+          Long courseId)
+      throws EntityNotFoundException {
+    return teamCsvResponse(
+        courseId,
+        1,
+        "nameandteam",
+        (writer, entries, columns) -> teamCsvService.writeNameAndTeamTablesCsv(writer, entries));
+  }
+
   /** Writes one of the compact team CSV tables from a list of abbreviated names and teams. */
   @FunctionalInterface
   interface TeamCsvWriter {
