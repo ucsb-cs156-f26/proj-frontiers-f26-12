@@ -36,8 +36,7 @@ public class InstructorStaffServiceTests {
     Course course =
         Course.builder().id(1L).instructorEmail("prof@ucsb.edu").installationId("123").build();
     User user = User.builder().email("prof@ucsb.edu").givenName("Pat").familyName("Prof").build();
-    when(courseStaffRepository.findByEmailAndCourse("prof@ucsb.edu", course))
-        .thenReturn(Optional.empty());
+    when(courseStaffRepository.existsByEmailAndCourse("prof@ucsb.edu", course)).thenReturn(false);
     when(userRepository.findByEmail("prof@ucsb.edu")).thenReturn(Optional.of(user));
 
     instructorStaffService.ensureInstructorIsStaff(course);
@@ -56,8 +55,7 @@ public class InstructorStaffServiceTests {
   @Test
   public void addsInstructorWithBlankNamesWhenUserHasNotLoggedInAndCourseNotSetUp() {
     Course course = Course.builder().id(1L).instructorEmail("prof@ucsb.edu").build();
-    when(courseStaffRepository.findByEmailAndCourse("prof@ucsb.edu", course))
-        .thenReturn(Optional.empty());
+    when(courseStaffRepository.existsByEmailAndCourse("prof@ucsb.edu", course)).thenReturn(false);
     when(userRepository.findByEmail("prof@ucsb.edu")).thenReturn(Optional.empty());
 
     instructorStaffService.ensureInstructorIsStaff(course);
@@ -74,12 +72,12 @@ public class InstructorStaffServiceTests {
   @Test
   public void doesNothingWhenInstructorIsAlreadyStaff() {
     Course course = Course.builder().id(1L).instructorEmail("prof@ucsb.edu").build();
-    when(courseStaffRepository.findByEmailAndCourse("prof@ucsb.edu", course))
-        .thenReturn(Optional.of(CourseStaff.builder().id(5L).build()));
+    when(courseStaffRepository.existsByEmailAndCourse("prof@ucsb.edu", course)).thenReturn(true);
 
     instructorStaffService.ensureInstructorIsStaff(course);
 
     verify(courseStaffRepository, never()).save(any());
+    verifyNoInteractions(userRepository);
   }
 
   @Test
@@ -97,13 +95,15 @@ public class InstructorStaffServiceTests {
     Course c1 = Course.builder().id(1L).instructorEmail("a@ucsb.edu").build();
     Course c2 = Course.builder().id(2L).instructorEmail("b@ucsb.edu").build();
     when(courseRepository.findAll()).thenReturn(List.of(c1, c2));
-    when(courseStaffRepository.findByEmailAndCourse("a@ucsb.edu", c1))
-        .thenReturn(Optional.of(CourseStaff.builder().id(5L).build()));
-    when(courseStaffRepository.findByEmailAndCourse("b@ucsb.edu", c2)).thenReturn(Optional.empty());
+    when(courseStaffRepository.existsByEmailAndCourse("a@ucsb.edu", c1)).thenReturn(true);
+    when(courseStaffRepository.existsByEmailAndCourse("b@ucsb.edu", c2)).thenReturn(false);
     when(userRepository.findByEmail("b@ucsb.edu")).thenReturn(Optional.empty());
 
     instructorStaffService.ensureAllInstructorsAreStaff();
 
-    verify(courseStaffRepository, times(1)).save(any(CourseStaff.class));
+    ArgumentCaptor<CourseStaff> captor = ArgumentCaptor.forClass(CourseStaff.class);
+    verify(courseStaffRepository, times(1)).save(captor.capture());
+    assertEquals("b@ucsb.edu", captor.getValue().getEmail());
+    assertEquals(c2, captor.getValue().getCourse());
   }
 }

@@ -33,7 +33,7 @@ public class InstructorStaffService {
     if (email == null) {
       return;
     }
-    if (courseStaffRepository.findByEmailAndCourse(email, course).isPresent()) {
+    if (courseStaffRepository.existsByEmailAndCourse(email, course)) {
       return;
     }
     Optional<User> user = userRepository.findByEmail(email);
