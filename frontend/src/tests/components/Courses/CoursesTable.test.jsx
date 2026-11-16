@@ -208,6 +208,32 @@ describe("CoursesTable tests", () => {
       "_blank",
     );
   });
+  test("calls viewInviteCallback instead of opening GitHub when one is supplied", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const viewInviteCallback = vi.fn();
+    render(
+      <BrowserRouter>
+        <CoursesTable
+          courses={coursesFixtures.oneCourseWithEachStatus}
+          testId={"CoursesTable"}
+          joinCallback={joinCallback}
+          isLoading={isLoading}
+          viewInviteCallback={viewInviteCallback}
+        />
+      </BrowserRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByTestId("CoursesTable-cell-row-2-col-studentStatus-button"),
+    );
+    expect(viewInviteCallback).toHaveBeenCalledTimes(1);
+    expect(viewInviteCallback.mock.calls[0][0].row.original).toEqual(
+      coursesFixtures.oneCourseWithEachStatus[2],
+    );
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(joinCallback).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
   test("tooltips for PENDING status", async () => {
     render(
       <BrowserRouter>
