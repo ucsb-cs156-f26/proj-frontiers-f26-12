@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -74,6 +75,8 @@ public class CATMEController extends ApiController {
   public static final String CATME_AUDIT_SCORES_LINE_PREFIX = "\"Scores";
   public static final String CATME_AUDIT_FORMAT_ERROR_MESSAGE =
       "The uploaded file was not in a recognized CATME TeamMaker CSV format.";
+  public static final String CATME_TEAM_FORMAT_ERROR_MESSAGE =
+      "The CATME file has missing or ambiguous team assignments. Export a fresh TeamMaker file with a Team Name column or a Rater Practice section.";
 
   /**
    * Audit the roster for a course against a CATME TeamMaker CSV export, producing a list of
@@ -102,7 +105,7 @@ public class CATMEController extends ApiController {
       lines = reader.lines().collect(Collectors.toList());
     }
 
-    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines, false);
+    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines);
     if (csvRows == null) {
       return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
           .body(genericMessage(CATME_AUDIT_FORMAT_ERROR_MESSAGE));
@@ -146,7 +149,7 @@ public class CATMEController extends ApiController {
       lines = reader.lines().collect(Collectors.toList());
     }
 
-    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines, true);
+    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines);
     if (csvRows == null) {
       return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
           .body(genericMessage(CATME_AUDIT_FORMAT_ERROR_MESSAGE));
@@ -159,10 +162,11 @@ public class CATMEController extends ApiController {
       return ResponseEntity.ok(auditResult);
     }
 
-    List<CATMETeamAssignment> assignments =
-        csvRows.stream()
-            .map(row -> new CATMETeamAssignment(row.studentId(), row.name(), row.teamName()))
-            .toList();
+    List<CATMETeamAssignment> assignments = parseTeamAssignments(lines, csvRows);
+    if (assignments == null) {
+      return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+          .body(genericMessage(CATME_TEAM_FORMAT_ERROR_MESSAGE));
+    }
     CreateTeamsFromCATMEJob job =
         CreateTeamsFromCATMEJob.builder()
             .course(course)
@@ -288,11 +292,9 @@ public class CATMEController extends ApiController {
    * Parses the lines of an uploaded CATME TeamMaker CSV file, validating the expected format.
    *
    * @param lines the lines of the file
-   * @param requireTeamNames whether the export must include a Team Name column for team creation
    * @return the list of parsed student rows, or null if the file is not in the expected format
    */
-  private static List<CATMEStudentRow> parseCatmeAuditCSV(
-      List<String> lines, boolean requireTeamNames) {
+  private static List<CATMEStudentRow> parseCatmeAuditCSV(List<String> lines) {
     if (lines.size() < 4) {
       return null;
     }
@@ -305,7 +307,7 @@ public class CATMEController extends ApiController {
     }
     String header = lines.get(3).trim();
     boolean hasTeamNames = header.startsWith(CATME_TEAM_HEADER_LINE_4);
-    if (!header.startsWith(CATME_AUDIT_HEADER_LINE_4) || (requireTeamNames && !hasTeamNames)) {
+    if (!header.startsWith(CATME_AUDIT_HEADER_LINE_4)) {
       return null;
     }
 
@@ -325,14 +327,89 @@ public class CATMEController extends ApiController {
           return null;
         }
         // Survey exports may have Platform (rather than Team Name) in the fifth column.
-        // Only team creation consumes teamName, and it requires the Team Name header above.
-        String teamName = requireTeamNames && fields.length > 4 ? fields[4] : "";
+        String teamName = hasTeamNames && fields.length > 4 ? fields[4] : "";
         rows.add(new CATMEStudentRow(fields[0], fields[1], fields[2], fields[3], teamName));
       } catch (IOException e) {
         return null;
       }
     }
     return rows;
+  }
+
+  /** Rater Practice identifies students by name and section, rather than student ID. */
+  private record CATMEStudentKey(String name, String section) {}
+
+  /**
+   * Reads team assignments after the roster audit succeeds. Supports both inline Team Name columns
+   * and the separate Rater Practice table in TeamFormation exports. Ambiguous or incomplete
+   * mappings are rejected before any job can run.
+   */
+  private static List<CATMETeamAssignment> parseTeamAssignments(
+      List<String> lines, List<CATMEStudentRow> rows) {
+    if (rows.isEmpty()) {
+      return null;
+    }
+    var studentIds = new HashSet<String>();
+    for (CATMEStudentRow row : rows) {
+      if (!studentIds.add(row.studentId())) {
+        return null;
+      }
+    }
+    if (lines.get(3).trim().startsWith(CATME_TEAM_HEADER_LINE_4)) {
+      return rows.stream()
+          .map(row -> new CATMETeamAssignment(row.studentId(), row.name(), row.teamName()))
+          .toList();
+    }
+
+    Map<CATMEStudentKey, CATMEStudentRow> studentsByNameAndSection = new HashMap<>();
+    for (CATMEStudentRow row : rows) {
+      if (studentsByNameAndSection.putIfAbsent(new CATMEStudentKey(row.name(), row.section()), row)
+          != null) {
+        return null;
+      }
+    }
+    int start = -1;
+    for (int i = 4; i < lines.size(); i++) {
+      if (lines.get(i).trim().equals("\"Rater Practice\"")) {
+        start = i + 1;
+        break;
+      }
+    }
+    if (start == -1
+        || start >= lines.size()
+        || !lines.get(start).trim().startsWith("\"Student\",\"Team\",\"Section\",")) {
+      return null;
+    }
+
+    CSVParser parser = new CSVParser();
+    Map<String, CATMETeamAssignment> assignmentsById = new HashMap<>();
+    for (int i = start + 1; i < lines.size(); i++) {
+      String line = lines.get(i);
+      if (line.trim().isEmpty()) {
+        break; // The following Comments table may contain multiline quoted fields.
+      }
+      try {
+        String[] fields = parser.parseLine(line);
+        if (fields.length < 3) {
+          return null;
+        }
+        CATMEStudentRow student =
+            studentsByNameAndSection.get(new CATMEStudentKey(fields[0], fields[2]));
+        if (student == null
+            || assignmentsById.putIfAbsent(
+                    student.studentId(),
+                    new CATMETeamAssignment(student.studentId(), student.name(), fields[1]))
+                != null) {
+          return null;
+        }
+      } catch (IOException e) {
+        return null;
+      }
+    }
+    if (assignmentsById.size() != rows.size()) {
+      return null;
+    }
+    return rows.stream().map(row -> assignmentsById.get(row.studentId())).toList();
   }
 
   @Operation(summary = "Convert CATME roster names into course emails")

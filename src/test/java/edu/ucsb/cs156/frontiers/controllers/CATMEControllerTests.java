@@ -45,7 +45,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -1348,8 +1352,12 @@ public class CATMEControllerTests extends ControllerTestCase {
 
   @Test
   @WithInstructorCoursePermissions
-  public void createTeams_surveyExportDoesNotTreatPlatformAnswersAsTeamNames() throws Exception {
+  public void createTeams_providedExportUsesRaterPracticeTeamsAndIgnoresMultilineComments()
+      throws Exception {
     when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    List<RosterStudent> roster = catmeExampleRoster();
+    when(rosterStudentRepository.findByCourseId(1L)).thenReturn(roster);
+    when(jobService.runAsJob(any())).thenReturn(Job.builder().id(42L).build());
     String content =
         Files.readString(
             CATME_EXAMPLES.resolve("FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-matches.csv"));
@@ -1359,9 +1367,180 @@ public class CATMEControllerTests extends ControllerTestCase {
                 .file(catmeFile(content))
                 .with(csrf())
                 .param("courseId", "1"))
-        .andExpect(status().isUnprocessableEntity());
-    verify(jobService, never()).runAsJob(any());
+        .andExpect(status().isOk());
+    ArgumentCaptor<CreateTeamsFromCATMEJob> captor =
+        ArgumentCaptor.forClass(CreateTeamsFromCATMEJob.class);
+    verify(jobService).runAsJob(captor.capture());
+    Map<String, String> teamByEmail = new java.util.HashMap<>();
+    try (CSVReader reader =
+        new CSVReader(
+            Files.newBufferedReader(CATME_EXAMPLES.resolve("CMPSC123-Fall-2026-Fake-Teams.csv")))) {
+      reader.readNext();
+      for (String[] row : reader.readAll()) {
+        teamByEmail.put(row[1], row[0]);
+      }
+    }
+    assertEquals(
+        roster.stream()
+            .map(
+                student ->
+                    new CATMETeamAssignment(
+                        student.getStudentId(),
+                        student.getLastName() + ", " + student.getFirstName(),
+                        teamByEmail.get(student.getEmail())))
+            .collect(java.util.stream.Collectors.toSet()),
+        Set.copyOf(captor.getValue().getAssignments()));
+    assertEquals(24, captor.getValue().getAssignments().size());
     verifyNoInteractions(teamRepository, teamMemberRepository);
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void createTeams_providedMismatchedExportReportsAuditWithoutLaunching() throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    when(rosterStudentRepository.findByCourseId(1L)).thenReturn(catmeExampleRoster());
+    String content =
+        Files.readString(
+            CATME_EXAMPLES.resolve(
+                "FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-mismatches.csv"));
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/createteams")
+                    .file(catmeFile(content))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andReturn();
+    CATMEAuditResult result =
+        objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
+    assertEquals(3, result.studentsToAdd().size());
+    assertEquals(0, result.studentsToUpdate().size());
+    assertEquals(3, result.studentsToDrop().size());
+    verifyNoInteractions(jobService, teamRepository, teamMemberRepository);
+  }
+
+  private static final String SURVEY_HEADER = CATME_AUDIT_HEADER.replace("\"Team Name\",", "");
+  private static final String SURVEY_ROW =
+      "\"Gaucho, Chris\",\"1111111\",\"chris@ucsb.edu\",\"0100\",\"Mac\"\n";
+  private static final String RATER_HEADER =
+      "\n\"Rater Practice\"\n\"Student\",\"Team\",\"Section\",\"Score\"\n";
+
+  static Stream<Arguments> invalidTeamExports() {
+    String survey = SURVEY_HEADER + SURVEY_ROW;
+    return Stream.of(
+        Arguments.of("no team table", survey),
+        Arguments.of("truncated team table", survey + "\n\"Rater Practice\"\n"),
+        Arguments.of(
+            "wrong team header",
+            survey + "\n\"Rater Practice\"\n\"Student\",\"Section\",\"Team\",\n"),
+        Arguments.of("no team rows", survey + RATER_HEADER),
+        Arguments.of("short team row", survey + RATER_HEADER + "\"Gaucho, Chris\",\"team-01\"\n"),
+        Arguments.of("malformed quoting", survey + RATER_HEADER + "\"unterminated\n"),
+        Arguments.of(
+            "unknown student", survey + RATER_HEADER + "\"Other, Person\",\"team-01\",\"0100\"\n"),
+        Arguments.of(
+            "wrong section", survey + RATER_HEADER + "\"Gaucho, Chris\",\"team-01\",\"0200\"\n"),
+        Arguments.of(
+            "duplicate team row",
+            survey
+                + RATER_HEADER
+                + "\"Gaucho, Chris\",\"team-01\",\"0100\"\n\"Gaucho, Chris\",\"team-02\",\"0100\"\n"),
+        Arguments.of("duplicate survey ID", SURVEY_HEADER + SURVEY_ROW + SURVEY_ROW + RATER_HEADER),
+        Arguments.of("duplicate inline ID", CATME_AUDIT_HEADER + SURVEY_ROW + SURVEY_ROW));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidTeamExports")
+  @WithInstructorCoursePermissions
+  public void createTeams_rejectsIncompleteOrAmbiguousTeamDataBeforeLaunching(
+      String description, String content) throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    when(rosterStudentRepository.findByCourseId(1L))
+        .thenReturn(List.of(enrolled("1111111", "Chris", "Gaucho", "0100")));
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/createteams")
+                    .file(catmeFile(content))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isUnprocessableEntity())
+            .andReturn();
+    assertEquals(
+        Map.of("message", CATMEController.CATME_TEAM_FORMAT_ERROR_MESSAGE),
+        objectMapper.readValue(response.getResponse().getContentAsString(), Map.class));
+    verifyNoInteractions(jobService, teamRepository, teamMemberRepository);
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void createTeams_doesNotLaunchAnEmptyImport() throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    mockMvc
+        .perform(
+            multipart("/api/catme/createteams")
+                .file(catmeFile(CATME_AUDIT_HEADER))
+                .with(csrf())
+                .param("courseId", "1"))
+        .andExpect(status().isUnprocessableEntity());
+    verifyNoInteractions(jobService, teamRepository, teamMemberRepository);
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void createTeams_rejectsStudentsWithTheSameNameAndSectionInSurveyExport()
+      throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    when(rosterStudentRepository.findByCourseId(1L))
+        .thenReturn(
+            List.of(
+                enrolled("1111111", "Chris", "Gaucho", "0100"),
+                enrolled("2222222", "Chris", "Gaucho", "0100")));
+    String content =
+        SURVEY_HEADER + SURVEY_ROW + SURVEY_ROW.replace("1111111", "2222222") + RATER_HEADER;
+    mockMvc
+        .perform(
+            multipart("/api/catme/createteams")
+                .file(catmeFile(content))
+                .with(csrf())
+                .param("courseId", "1"))
+        .andExpect(status().isUnprocessableEntity());
+    verifyNoInteractions(jobService, teamRepository, teamMemberRepository);
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void createTeams_usesSectionsToDisambiguateNamesAndKeepsBlankTeamAssignments()
+      throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    when(rosterStudentRepository.findByCourseId(1L))
+        .thenReturn(
+            List.of(
+                enrolled("1111111", "Chris", "Gaucho", "0100"),
+                enrolled("2222222", "Chris", "Gaucho", "0200")));
+    when(jobService.runAsJob(any())).thenReturn(Job.builder().id(42L).build());
+    String content =
+        SURVEY_HEADER
+            + SURVEY_ROW
+            + SURVEY_ROW.replace("1111111", "2222222").replace("0100", "0200")
+            + RATER_HEADER
+            + "\"Gaucho, Chris\",\"team-02\",\"0200\"\n\"Gaucho, Chris\",\"\",\"0100\"";
+    mockMvc
+        .perform(
+            multipart("/api/catme/createteams")
+                .file(catmeFile(content))
+                .with(csrf())
+                .param("courseId", "1"))
+        .andExpect(status().isOk());
+    ArgumentCaptor<CreateTeamsFromCATMEJob> captor =
+        ArgumentCaptor.forClass(CreateTeamsFromCATMEJob.class);
+    verify(jobService).runAsJob(captor.capture());
+    assertEquals(
+        List.of(
+            new CATMETeamAssignment("1111111", "Gaucho, Chris", ""),
+            new CATMETeamAssignment("2222222", "Gaucho, Chris", "team-02")),
+        captor.getValue().getAssignments());
   }
 
   private static RosterStudent enrolled(

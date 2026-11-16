@@ -78,5 +78,34 @@ Names, student IDs, emails and sections match for every student who appears in b
    roster or created any teams.
 
 The audit accepts both the survey export provided here and exports with a
-`Team Name` column immediately after `Section`. Creating teams from the
-`Rater Practice` section of these sample files is a separate team-import task.
+`Team Name` column immediately after `Section`.
+
+## Testing CATME team upload
+
+1. Use the prepared 24-student course above, with no teams yet. In the CATME
+   tab, find **Upload Teams from CATME** and click **Upload teams** without
+   choosing a file. Expect an instruction to select a CATME export.
+2. Upload the mismatched CATME export in that card. Expect the same three
+   additions and three removals as the audit, and a message that no job was
+   launched. The Teams tab should still be empty.
+3. Try the eGrades file in the team-upload card. Expect a format error and
+   enabled controls for retrying. A CATME survey with no team table should
+   report missing or ambiguous team assignments instead of creating teams
+   named after survey answers such as `macos`.
+4. Upload the matching CATME export. Expect a launched-job message and a
+   **View progress in the Jobs tab** link. Follow the link and inspect the
+   completed job's output: six teams created, 24 students added.
+5. On the Teams tab, confirm the six `cmpsc123-01` through `cmpsc123-06` teams
+   each have four members, matching `CMPSC123-Fall-2026-Fake-Teams.csv`.
+   The roster stays unchanged. This job creates Frontiers teams; pushing
+   them to GitHub is a separate action.
+6. Upload the matching export again and inspect the new job. Expect zero
+   teams created and zero students added: existing teams and memberships
+   are reused.
+
+Team upload uses either the inline `Team Name` column or the `Rater Practice`
+table. The latter identifies students by name and section, so missing rows,
+duplicate rows, and ambiguous names within one section are rejected before
+launching a job. Blank team names are passed to the existing job, which logs
+and skips those students. Existing memberships are preserved rather than
+replaced; this operation does not remove students from previous teams.

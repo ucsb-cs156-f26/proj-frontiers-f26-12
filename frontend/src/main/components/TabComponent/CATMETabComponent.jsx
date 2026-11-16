@@ -1,6 +1,7 @@
 import React from "react";
 import { Button } from "react-bootstrap";
 import CATMEAuditCard from "main/components/CATME/CATMEAuditCard";
+import CATMETeamUploadCard from "main/components/CATME/CATMETeamUploadCard";
 
 export default function CATMETabComponent({ courseId, testIdPrefix }) {
   const downloadCsv = () => {
@@ -12,6 +13,7 @@ export default function CATMETabComponent({ courseId, testIdPrefix }) {
       <p>Download this course&apos;s roster for use in CATME.</p>
       <Button onClick={downloadCsv}>Download CSV Roster in CATME format</Button>
       <CATMEAuditCard key={courseId} courseId={courseId} />
+      <CATMETeamUploadCard key={`teams-${courseId}`} courseId={courseId} />
     </div>
   );
 }

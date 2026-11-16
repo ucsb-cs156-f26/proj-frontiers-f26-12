@@ -14,6 +14,37 @@ export const Default = {
       http.post("/api/catme/audit", () =>
         HttpResponse.json(catmeAuditFixtures.differences),
       ),
+      http.post("/api/catme/createteams", () =>
+        HttpResponse.json({ message: "Job Launched: 42" }),
+      ),
+    ],
+  },
+};
+
+export const TeamUploadAuditDifferences = {
+  ...Default,
+  parameters: {
+    msw: [
+      http.post("/api/catme/createteams", () =>
+        HttpResponse.json(catmeAuditFixtures.differences),
+      ),
+    ],
+  },
+};
+
+export const TeamUploadInvalidFile = {
+  ...Default,
+  parameters: {
+    msw: [
+      http.post("/api/catme/createteams", () =>
+        HttpResponse.json(
+          {
+            message:
+              "The CATME file has missing or ambiguous team assignments. Export a fresh TeamMaker file with a Team Name column or a Rater Practice section.",
+          },
+          { status: 422 },
+        ),
+      ),
     ],
   },
 };
