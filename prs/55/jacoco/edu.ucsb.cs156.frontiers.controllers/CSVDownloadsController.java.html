@@ -169,7 +169,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
           &quot;Returns a CSV file with the roster laid out in several side-by-side Name,Team column&quot;
               + &quot; pairs. Names are sorted by first name and abbreviated as far as possible while&quot;
               + &quot; remaining unique (first name; first name plus last initial; first name plus last&quot;
-              + &quot; name). Exact duplicate names are left as duplicates.&quot;,
+              + &quot; name). Exact duplicate names are marked with an asterisk.&quot;,
       responses = {
         @ApiResponse(
             responseCode = &quot;200&quot;,
@@ -204,7 +204,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
               + &quot; pairs, one row per student, teams sorted by name and balanced across the columns&quot;
               + &quot; so that no team is split. Names are sorted by first name and abbreviated as far&quot;
               + &quot; as possible while remaining unique (first name; first name plus last initial;&quot;
-              + &quot; first name plus last name). Exact duplicate names are left as duplicates.&quot;
+              + &quot; first name plus last name). Exact duplicate names are marked with an asterisk.&quot;
               + &quot; Students with no team are listed last with a blank team.&quot;,
       responses = {
         @ApiResponse(
@@ -239,7 +239,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
           &quot;Returns a CSV file with the Name,Team table under a \&quot;by name\&quot; line,&quot;
               + &quot; then the Team,Name table under a \&quot;by team\&quot; line, each using as many columns as needed. Names are sorted by first name and abbreviated as&quot;
               + &quot; far as possible while remaining unique (first name; first name plus last initial;&quot;
-              + &quot; first name plus last name). Exact duplicate names are left as duplicates.&quot;
+              + &quot; first name plus last name). Exact duplicate names are marked with an asterisk.&quot;
               + &quot; Students with no team are listed last with a blank team.&quot;,
       responses = {
         @ApiResponse(
