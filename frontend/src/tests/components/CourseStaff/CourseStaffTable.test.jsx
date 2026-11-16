@@ -530,7 +530,7 @@ describe("CourseStaffTable tests", () => {
     );
   });
 
-    test("shows Instructor instead of a delete button for the course instructor", () => {
+  test("shows Instructor instead of a delete button for the course instructor", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
@@ -544,6 +544,9 @@ describe("CourseStaffTable tests", () => {
       </QueryClientProvider>,
     );
 
+    expect(
+      screen.getByRole("columnheader", { name: "Delete" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId(`${testId}-cell-row-0-col-Delete-instructor`),
     ).toHaveTextContent("Instructor");
@@ -563,5 +566,4 @@ describe("CourseStaffTable tests", () => {
       screen.queryByTestId(`${testId}-cell-row-1-col-Delete-instructor`),
     ).not.toBeInTheDocument();
   });
-  
 });

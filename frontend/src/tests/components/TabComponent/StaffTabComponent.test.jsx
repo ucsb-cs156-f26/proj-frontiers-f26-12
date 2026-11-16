@@ -95,7 +95,6 @@ describe("StaffTabComponent Tests", () => {
     expect(staffId0).toHaveTextContent(courseStaffFixtures.threeStaff[0].id);
   });
 
-
   test("StaffTabComponent displays Instructor instead of Delete for the instructor", async () => {
     axiosMock
       .onGet("/api/coursestaff/course?courseId=1")
@@ -116,19 +115,14 @@ describe("StaffTabComponent Tests", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          `${rsTestId}-cell-row-0-col-Delete-instructor`,
-        ),
+        screen.getByTestId(`${rsTestId}-cell-row-0-col-Delete-instructor`),
       ).toBeInTheDocument();
     });
 
     expect(
-      screen.getByTestId(
-        `${rsTestId}-cell-row-0-col-Delete-instructor`,
-      ),
+      screen.getByTestId(`${rsTestId}-cell-row-0-col-Delete-instructor`),
     ).toHaveTextContent("Instructor");
   });
-
 
   test("StaffTabComponent hides staff management controls when not instructor", async () => {
     axiosMock

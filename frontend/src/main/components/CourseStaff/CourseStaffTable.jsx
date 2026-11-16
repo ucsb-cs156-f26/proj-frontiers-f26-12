@@ -216,7 +216,7 @@ export default function CourseStaffTable({
     },
   });
 
-    if (isInstructor && hasRole(currentUser, "ROLE_INSTRUCTOR")) {
+  if (isInstructor && hasRole(currentUser, "ROLE_INSTRUCTOR")) {
     columns.push(ButtonColumn("Edit", "primary", editCallback, testIdPrefix));
     columns.push({
       header: "Delete",
@@ -224,7 +224,9 @@ export default function CourseStaffTable({
       cell: ({ cell }) => {
         const cellTestId = `${testIdPrefix}-cell-row-${cell.row.index}-col-Delete`;
         if (instructorEmail && cell.row.original.email === instructorEmail) {
-          return <span data-testid={`${cellTestId}-instructor`}>Instructor</span>;
+          return (
+            <span data-testid={`${cellTestId}-instructor`}>Instructor</span>
+          );
         }
         return (
           <Button
