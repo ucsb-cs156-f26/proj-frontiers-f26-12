@@ -136,21 +136,24 @@ import org.springframework.web.bind.annotation.RestController;
               example = &quot;lab01&quot;)
           @RequestParam
           String prefix) {
-<span class="fc" id="L139">    Course course =</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">    if (prefix.isBlank()) {</span>
+<span class="fc" id="L140">      throw new IllegalArgumentException(&quot;prefix must not be blank&quot;);</span>
+    }
+<span class="fc" id="L142">    Course course =</span>
         courseRepository
-<span class="fc" id="L141">            .findById(courseId)</span>
-<span class="fc" id="L142">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
-<span class="fc bfc" id="L143" title="All 4 branches covered.">    if (course.getOrgName() == null || course.getInstallationId() == null) {</span>
-<span class="fc" id="L144">      throw new NoLinkedOrganizationException(course.getCourseName());</span>
+<span class="fc" id="L144">            .findById(courseId)</span>
+<span class="fc" id="L145">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+<span class="fc bfc" id="L146" title="All 4 branches covered.">    if (course.getOrgName() == null || course.getInstallationId() == null) {</span>
+<span class="fc" id="L147">      throw new NoLinkedOrganizationException(course.getCourseName());</span>
     } else {
       DeleteRepoJob job =
-<span class="fc" id="L147">          DeleteRepoJob.builder()</span>
-<span class="fc" id="L148">              .courseId(courseId)</span>
-<span class="fc" id="L149">              .prefix(prefix)</span>
-<span class="fc" id="L150">              .courseRepository(courseRepository)</span>
-<span class="fc" id="L151">              .repositoryService(repositoryService)</span>
-<span class="fc" id="L152">              .build();</span>
-<span class="fc" id="L153">      return jobService.runAsJob(job);</span>
+<span class="fc" id="L150">          DeleteRepoJob.builder()</span>
+<span class="fc" id="L151">              .courseId(courseId)</span>
+<span class="fc" id="L152">              .prefix(prefix)</span>
+<span class="fc" id="L153">              .courseRepository(courseRepository)</span>
+<span class="fc" id="L154">              .repositoryService(repositoryService)</span>
+<span class="fc" id="L155">              .build();</span>
+<span class="fc" id="L156">      return jobService.runAsJob(job);</span>
     }
   }
 }
