@@ -8,6 +8,8 @@ export function StudentCoursesTableView({
   testid,
   joinCallback,
   isLoading,
+  courseNameLinkPrefix,
+  viewInviteCallback,
 }) {
   return (
     <>
@@ -17,7 +19,8 @@ export function StudentCoursesTableView({
           testId={testid}
           joinCallback={joinCallback}
           isLoading={isLoading}
-          courseNameLinkPrefix="/student/courses"
+          courseNameLinkPrefix={courseNameLinkPrefix}
+          viewInviteCallback={viewInviteCallback}
         />
       ) : (
         <p>You are not enrolled in any student courses yet.</p>
@@ -76,6 +79,7 @@ export function StudentCoursesTable({ testid }) {
       testid={testid}
       joinCallback={joinStudentCourseCallback}
       isLoading={isStudentJoining}
+      courseNameLinkPrefix="/student/courses"
     />
   );
 }
