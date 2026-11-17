@@ -3,6 +3,32 @@ import { toast } from "react-toastify";
 import CoursesTable from "main/components/Courses/CoursesTable";
 import React from "react";
 
+export function StudentCoursesTableView({
+  courses,
+  testid,
+  joinCallback,
+  isLoading,
+  courseNameLinkPrefix,
+  viewInviteCallback,
+}) {
+  return (
+    <>
+      {courses.length > 0 ? (
+        <CoursesTable
+          courses={courses}
+          testId={testid}
+          joinCallback={joinCallback}
+          isLoading={isLoading}
+          courseNameLinkPrefix={courseNameLinkPrefix}
+          viewInviteCallback={viewInviteCallback}
+        />
+      ) : (
+        <p>You are not enrolled in any student courses yet.</p>
+      )}
+    </>
+  );
+}
+
 export function StudentCoursesTable({ testid }) {
   const { data: courses } = useBackend(
     ["/api/courses/list"],
@@ -48,20 +74,12 @@ export function StudentCoursesTable({ testid }) {
   };
 
   return (
-    <>
-      {courses.length > 0 ? (
-        <>
-          <CoursesTable
-            courses={courses}
-            testId={testid}
-            joinCallback={joinStudentCourseCallback}
-            isLoading={isStudentJoining}
-            courseNameLinkPrefix="/student/courses"
-          />
-        </>
-      ) : (
-        <p>You are not enrolled in any student courses yet.</p>
-      )}
-    </>
+    <StudentCoursesTableView
+      courses={courses}
+      testid={testid}
+      joinCallback={joinStudentCourseCallback}
+      isLoading={isStudentJoining}
+      courseNameLinkPrefix="/student/courses"
+    />
   );
 }
