@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import SignInSuccessPage from "main/pages/Auth/SignInSuccessPage";
 import { apiCurrentUserFixtures } from "fixtures/currentUserFixtures";
 import { systemInfoFixtures } from "fixtures/systemInfoFixtures";
@@ -10,6 +10,10 @@ import AxiosMockAdapter from "axios-mock-adapter";
 const axiosMock = new AxiosMockAdapter(axios);
 let queryClient;
 let previousRedirect;
+
+function CurrentRoute() {
+  return <output aria-label="Current route">{useLocation().pathname}</output>;
+}
 
 describe("SignInSuccessPage redirects with the real router", () => {
   beforeEach(() => {
@@ -68,4 +72,40 @@ describe("SignInSuccessPage redirects with the real router", () => {
       expect(screen.queryByText("Redirecting...")).not.toBeInTheDocument();
     },
   );
+
+  test("uses an updated stored destination when the callback rerenders", async () => {
+    sessionStorage.setItem("redirect", "/student/courses/7");
+    const callback = (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/signin/success"]}>
+          <CurrentRoute />
+          <SignInSuccessPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(callback);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(
+        "/student/courses/7",
+      );
+    });
+
+    // Keep the callback mounted so the next render must use the latest saved path.
+    sessionStorage.setItem("redirect", "/profile");
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/signin/success"]}>
+          <CurrentRoute />
+          <SignInSuccessPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(
+        "/profile",
+      );
+    });
+  });
 });
