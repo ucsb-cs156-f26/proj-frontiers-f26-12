@@ -24,7 +24,7 @@ describe("CourseWarningBanner tests", () => {
     axiosMock.reset();
     axiosMock.resetHistory();
     queryClient.clear();
-    mockToast.mockClear();
+    vi.clearAllMocks();
   });
 
   test("renders warning banner on warning return", async () => {
@@ -133,6 +133,121 @@ describe("CourseWarningBanner tests", () => {
     expect(
       screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
     ).not.toBeInTheDocument();
+  });
+
+  test("dismiss saves the course preference, hides only this warning, and refreshes the course", async () => {
+    axiosMock.onGet("/api/courses/warnings/7").reply(200, {
+      showOrganizationAgeWarning: true,
+      showDefaultBasePermissions: true,
+      showFreePlanWarning: true,
+    });
+    let finishRequest;
+    axiosMock.onPost("/api/courses/warnings/hideBasePermissionWarning/7").reply(
+      () =>
+        new Promise((resolve) => {
+          finishRequest = resolve;
+        }),
+    );
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CourseWarningBanner courseId={7} orgName="test-org" />
+      </QueryClientProvider>,
+    );
+    const dismiss = await screen.findByTestId(
+      "CourseWarningBanner-defaultBasePermission-dismiss",
+    );
+    expect(dismiss).toHaveTextContent("Dismiss");
+    expect(dismiss).toHaveClass("btn-sm", "btn-outline-secondary", "ms-2");
+    expect(dismiss).toBeEnabled();
+    fireEvent.click(dismiss);
+    await waitFor(() => expect(dismiss).toBeDisabled());
+    expect(
+      screen.getByTestId("CourseWarningBanner-defaultBasePermission"),
+    ).toBeInTheDocument();
+    fireEvent.click(dismiss);
+    expect(axiosMock.history.post).toHaveLength(1);
+    expect(axiosMock.history.post[0].url).toBe(
+      "/api/courses/warnings/hideBasePermissionWarning/7",
+    );
+    finishRequest([200, { message: "saved" }]);
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/courses/7"],
+    });
+    expect(
+      screen.getByTestId("CourseWarningBanner-freePlan"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/less than 30 days old/i)).toBeInTheDocument();
+  });
+
+  test("failed dismissal leaves the warning visible and allows retry", async () => {
+    axiosMock
+      .onGet("/api/courses/warnings/1")
+      .reply(200, { showDefaultBasePermissions: true });
+    axiosMock
+      .onPost("/api/courses/warnings/hideBasePermissionWarning/1")
+      .replyOnce(500, {});
+    axiosMock
+      .onPost("/api/courses/warnings/hideBasePermissionWarning/1")
+      .reply(200, {});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CourseWarningBanner courseId={1} orgName="test-org" />
+      </QueryClientProvider>,
+    );
+    const dismiss = await screen.findByTestId(
+      "CourseWarningBanner-defaultBasePermission-dismiss",
+    );
+    fireEvent.click(dismiss);
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        "Error: Request failed with status code 500",
+      ),
+    );
+    expect(
+      screen.getByTestId("CourseWarningBanner-defaultBasePermission"),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(dismiss).toBeEnabled());
+    fireEvent.click(dismiss);
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(axiosMock.history.post).toHaveLength(2);
+  });
+
+  test("dismissing one course does not hide the warning for another course", async () => {
+    axiosMock
+      .onGet(/\/api\/courses\/warnings\/[12]/)
+      .reply(200, { showDefaultBasePermissions: true });
+    axiosMock
+      .onPost("/api/courses/warnings/hideBasePermissionWarning/1")
+      .reply(200, {});
+    const banner = (courseId) => (
+      <QueryClientProvider client={queryClient}>
+        <CourseWarningBanner courseId={courseId} orgName="test-org" />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(banner(1));
+    fireEvent.click(
+      await screen.findByTestId(
+        "CourseWarningBanner-defaultBasePermission-dismiss",
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument(),
+    );
+    rerender(banner(2));
+    await screen.findByTestId("CourseWarningBanner-defaultBasePermission");
   });
 
   test("does not render default base permission warning when hideBasePermissionWarning is true", async () => {
