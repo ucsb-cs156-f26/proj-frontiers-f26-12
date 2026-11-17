@@ -3,7 +3,7 @@ import { useBackend } from "main/utils/useBackend";
 
 import BasicLayout from "main/layouts/BasicLayout/BasicLayout";
 import { useCurrentUser } from "main/utils/currentUser";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import Modal from "react-bootstrap/Modal";
 import { Button, Tab, Tabs, OverlayTrigger, Tooltip } from "react-bootstrap";
@@ -66,6 +66,10 @@ export default function InstructorCourseShowPage({
   const courseOptions = showSettingsTab
     ? allCourseOptions
     : { NEW_ASSIGNMENT_FEATURES: allCourseOptions.NEW_ASSIGNMENT_FEATURES };
+
+  // Section values are translated in the student tables whenever the
+  // TRANSLATE_SECTIONS course option is enabled, for staff as well
+  const translateSections = allCourseOptions.TRANSLATE_SECTIONS === true;
 
   // The Sections tab is only shown when the TRANSLATE_SECTIONS course option
   // is enabled.
@@ -236,6 +240,16 @@ export default function InstructorCourseShowPage({
                 </div>
               )}
             </div>
+            <Button
+              as={Link}
+              to={`/onboarding/preview/${courseId}`}
+              variant="outline-primary"
+              size="sm"
+              className="ms-auto"
+              data-testid={`${testId}-onboarding-preview-link`}
+            >
+              View onboarding as student
+            </Button>
           </div>
         </div>
       )}
@@ -249,7 +263,7 @@ export default function InstructorCourseShowPage({
             testIdPrefix={testId}
             currentUser={currentUser}
             canEditStudents={canEditStudents}
-            translateSections={showSectionsTab}
+            translateSections={translateSections}
             canvasEnabled={courseOptions.ENABLE_CANVAS === true}
           />
         </Tab>
