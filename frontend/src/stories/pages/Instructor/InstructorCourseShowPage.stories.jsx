@@ -467,6 +467,30 @@ ExampleCourseWithApiKeysTab.parameters = {
   },
 };
 
+const catmeCourseParameters = (enabled) => ({
+  msw: {
+    handlers: [
+      ...basicHandlers,
+      http.get("/api/rosterStudents/course/7", () =>
+        HttpResponse.json(rosterStudents),
+      ),
+      http.get("/api/coursestaff/course", () => HttpResponse.json([])),
+      http.get("/api/jobs/course", () => HttpResponse.json([])),
+      http.get("/api/course/options", () =>
+        HttpResponse.json({ ENABLE_CATME: enabled }),
+      ),
+    ],
+  },
+});
+
+export const CATMEDisabled = Template.bind({});
+CATMEDisabled.args = { suppressMemoryRouter: true };
+CATMEDisabled.parameters = catmeCourseParameters(false);
+
+export const CATMEEnabled = Template.bind({});
+CATMEEnabled.args = { suppressMemoryRouter: true };
+CATMEEnabled.parameters = catmeCourseParameters(true);
+
 export const ExampleCourseWithEduDoraTab = Template.bind({});
 ExampleCourseWithEduDoraTab.args = {
   suppressMemoryRouter: true,
