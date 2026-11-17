@@ -66,6 +66,10 @@ export default function InstructorCourseShowPage({
     ? allCourseOptions
     : { NEW_ASSIGNMENT_FEATURES: allCourseOptions.NEW_ASSIGNMENT_FEATURES };
 
+  // Section values are translated in the student tables whenever the
+  // TRANSLATE_SECTIONS course option is enabled, for staff as well
+  const translateSections = allCourseOptions.TRANSLATE_SECTIONS === true;
+
   // The Sections tab is only shown when the TRANSLATE_SECTIONS course option
   // is enabled.
   const showSectionsTab = courseOptions.TRANSLATE_SECTIONS === true;
@@ -245,7 +249,7 @@ export default function InstructorCourseShowPage({
             testIdPrefix={testId}
             currentUser={currentUser}
             canEditStudents={canEditStudents}
-            translateSections={showSectionsTab}
+            translateSections={translateSections}
             canvasEnabled={courseOptions.ENABLE_CANVAS === true}
           />
         </Tab>
