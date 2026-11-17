@@ -18,7 +18,7 @@ axiosMock
   .onGet("/api/systemInfo")
   .reply(200, systemInfoFixtures.showingNeither);
 
-test("OnboardingSuccessPage static checks", async () => {
+const renderPage = () =>
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
@@ -26,10 +26,27 @@ test("OnboardingSuccessPage static checks", async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+
+test("OnboardingSuccessPage static checks", async () => {
+  renderPage();
   await screen.findByText(
     /Congratulations on completing the onboarding process!/,
   );
   const container = screen.getByTestId("BasicLayout-container");
   expect(container).toBeInTheDocument();
   expect(container).toHaveClass("pt-4 flex-grow-1 d-flex flex-column");
+});
+
+test("OnboardingSuccessPage shows the complete screen and a full progress bar", async () => {
+  renderPage();
+  await screen.findByText(
+    /Congratulations on completing the onboarding process!/,
+  );
+  expect(screen.getByText("Click here to return home")).toHaveAttribute(
+    "href",
+    "/",
+  );
+  const bar = screen.getByRole("progressbar");
+  expect(bar).toHaveAttribute("aria-valuenow", "100");
+  expect(bar.closest(".row")).toHaveClass("mt-auto", "pb-3");
 });
