@@ -1,7 +1,13 @@
 package edu.ucsb.cs156.frontiers.controllers;
 
+import edu.ucsb.cs156.frontiers.entities.CourseStaff;
+import edu.ucsb.cs156.frontiers.entities.RosterStudent;
 import edu.ucsb.cs156.frontiers.entities.User;
+import edu.ucsb.cs156.frontiers.enums.OrgStatus;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
+import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -19,10 +25,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class GithubController extends ApiController {
 
   private final UserRepository userRepository;
+  private final RosterStudentRepository rosterStudentRepository;
+  private final CourseStaffRepository courseStaffRepository;
 
-  public GithubController(UserRepository userRepository) {
+  public GithubController(
+      UserRepository userRepository,
+      RosterStudentRepository rosterStudentRepository,
+      CourseStaffRepository courseStaffRepository) {
     super();
     this.userRepository = userRepository;
+    this.rosterStudentRepository = rosterStudentRepository;
+    this.courseStaffRepository = courseStaffRepository;
   }
 
   @PreAuthorize("hasRole('ROLE_GITHUB')")
@@ -32,6 +45,29 @@ public class GithubController extends ApiController {
     currentUser.setGithubId(null);
     currentUser.setGithubLogin(null);
     userRepository.save(currentUser);
+
+    List<RosterStudent> invitedStudents = new ArrayList<>();
+    for (RosterStudent rs : rosterStudentRepository.findAllByUser(currentUser)) {
+      if (rs.getOrgStatus() == OrgStatus.INVITED) {
+        rs.setOrgStatus(OrgStatus.JOINCOURSE);
+        rs.setGithubId(null);
+        rs.setGithubLogin(null);
+        invitedStudents.add(rs);
+      }
+    }
+    rosterStudentRepository.saveAll(invitedStudents);
+
+    List<CourseStaff> invitedStaff = new ArrayList<>();
+    for (CourseStaff cs : courseStaffRepository.findAllByUser(currentUser)) {
+      if (cs.getOrgStatus() == OrgStatus.INVITED) {
+        cs.setOrgStatus(OrgStatus.JOINCOURSE);
+        cs.setGithubId(null);
+        cs.setGithubLogin(null);
+        invitedStaff.add(cs);
+      }
+    }
+    courseStaffRepository.saveAll(invitedStaff);
+
     Authentication auth = context.getAuthentication();
     List<? extends GrantedAuthority> removedAuthority =
         auth.getAuthorities().stream()
