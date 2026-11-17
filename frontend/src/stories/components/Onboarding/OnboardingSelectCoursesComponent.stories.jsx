@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Container } from "react-bootstrap";
 import { http, HttpResponse } from "msw";
+import { fn } from "storybook/test";
 import { systemInfoFixtures } from "fixtures/systemInfoFixtures";
 import OnboardingSelectCoursesComponent from "main/components/Onboarding/OnboardingSelectCoursesComponent";
 import coursesFixtures from "fixtures/coursesFixtures";
@@ -25,10 +26,10 @@ const QueryWrapper = ({ children }) => {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 };
-const Template = () => (
+const Template = (args) => (
   <QueryWrapper>
     <Container>
-      <OnboardingSelectCoursesComponent />
+      <OnboardingSelectCoursesComponent {...args} />
     </Container>
   </QueryWrapper>
 );
@@ -72,4 +73,18 @@ NoCourses.parameters = {
       }),
     ],
   },
+};
+
+// Preview mode: sample courses, nothing is fetched or submitted
+export const PreviewWithCourses = Template.bind({});
+PreviewWithCourses.args = {
+  courses: coursesFixtures.oneRosterStudentWithEachStatus,
+  onJoinCourse: fn(),
+  onContinue: fn(),
+};
+
+export const PreviewNoCourses = Template.bind({});
+PreviewNoCourses.args = {
+  courses: [],
+  onContinue: fn(),
 };
