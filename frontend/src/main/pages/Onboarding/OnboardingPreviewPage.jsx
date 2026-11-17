@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Alert, Button, ButtonGroup, ProgressBar, Row } from "react-bootstrap";
 import BasicLayout from "main/layouts/BasicLayout/BasicLayout";
@@ -16,13 +16,16 @@ const previewStages = [
   { key: "complete", label: "Complete", progress: 100 },
 ];
 
-// Stryker disable next-line all : the read-only preview ignores these actions on purpose
+// Stryker disable next-line all : returning home is ignored on purpose so the preview stays open
 const doNothing = () => {};
 
 export default function OnboardingPreviewPage() {
   const currentUser = useCurrentUser();
   const { courseId } = useParams();
   const [stage, setStage] = useState("school");
+  const [joined, setJoined] = useState(false);
+  const [inviteViewed, setInviteViewed] = useState(false);
+  const [resetCount, setResetCount] = useState(0);
 
   // The backend only returns a course to admins, its instructor and its staff,
   // so a failed request means this viewer may not see the preview.
@@ -63,8 +66,9 @@ export default function OnboardingPreviewPage() {
   // Stryker restore OptionalChaining
   const returnPath = `/${canSeeInstructorView ? "instructor" : "staff"}/courses/${courseId}`;
 
-  // A single sample row based on this course, so the screenshot looks like
-  // what students of this course will actually see.
+  // One sample row based on this course. Joining it only flips the in-memory
+  // joined flag, which is the same JOINCOURSE to INVITED change a real student
+  // sees after joining. Nothing is sent to the backend.
   const sampleCourses = [
     {
       id: course.id,
@@ -73,25 +77,55 @@ export default function OnboardingPreviewPage() {
       term: course.term,
       school: course.school,
       orgName: course.orgName,
-      studentStatus: "JOINCOURSE",
+      studentStatus: joined ? "INVITED" : "JOINCOURSE",
     },
   ];
+
+  const resetPreview = () => {
+    setStage("school");
+    setJoined(false);
+    setInviteViewed(false);
+    // Stryker disable next-line all : any new key remounts the screens, which clears the school picker
+    setResetCount((count) => count + 1);
+  };
 
   const renderStage = () => {
     switch (stage) {
       case "github":
-        return <OnboardingGithubSignInComponent onSignIn={doNothing} />;
+        return (
+          <OnboardingGithubSignInComponent
+            onSignIn={() => setStage("courses")}
+          />
+        );
       case "courses":
         return (
-          <OnboardingSelectCoursesComponent
-            courses={sampleCourses}
-            onContinue={doNothing}
-          />
+          <>
+            {inviteViewed && (
+              <Alert
+                variant="secondary"
+                data-testid="OnboardingPreviewPage-invite-notice"
+              >
+                In the real flow, View Invite opens the GitHub invitation for
+                the {course.orgName} organization in a new tab. The preview does
+                not open it, since no invitation was sent.
+              </Alert>
+            )}
+            <OnboardingSelectCoursesComponent
+              courses={sampleCourses}
+              onJoinCourse={() => setJoined(true)}
+              onViewInvite={() => setInviteViewed(true)}
+              onContinue={() => setStage("complete")}
+            />
+          </>
         );
       case "complete":
         return <OnboardingCompleteComponent onReturnHome={doNothing} />;
       default:
-        return <OnboardingSelectSchoolComponent onSignIn={doNothing} />;
+        return (
+          <OnboardingSelectSchoolComponent
+            onSignIn={() => setStage("github")}
+          />
+        );
     }
   };
 
@@ -103,8 +137,9 @@ export default function OnboardingPreviewPage() {
     <BasicLayout enableBootstrap={true}>
       <Alert variant="info" data-testid="OnboardingPreviewPage-banner">
         <strong>Student onboarding preview</strong> for {course.courseName} (
-        {course.term}). This shows what students see. Nothing here signs anyone
-        in, joins a course, or changes any account.
+        {course.term}). Click through it like a student would, or jump to a
+        stage with the buttons below. Nothing here signs anyone in, joins a
+        course, or changes any account.
       </Alert>
       <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
         <ButtonGroup aria-label="Onboarding stage">
@@ -120,6 +155,13 @@ export default function OnboardingPreviewPage() {
           ))}
         </ButtonGroup>
         <Button
+          variant="outline-secondary"
+          onClick={resetPreview}
+          data-testid="OnboardingPreviewPage-reset"
+        >
+          Reset preview
+        </Button>
+        <Button
           as={Link}
           to={returnPath}
           variant="secondary"
@@ -129,7 +171,7 @@ export default function OnboardingPreviewPage() {
           Return to course
         </Button>
       </div>
-      {renderStage()}
+      <Fragment key={resetCount}>{renderStage()}</Fragment>
       <Row className="mt-auto pb-3">
         <ProgressBar now={currentStage.progress} />
       </Row>

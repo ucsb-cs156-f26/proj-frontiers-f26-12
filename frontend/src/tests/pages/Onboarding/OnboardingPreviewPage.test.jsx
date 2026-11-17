@@ -42,6 +42,27 @@ const setUser = (user) => axiosMock.onGet("/api/currentUser").reply(200, user);
 const progressValue = () =>
   screen.getByRole("progressbar").getAttribute("aria-valuenow");
 
+const renderAsAdmin = async () => {
+  setUser(apiCurrentUserFixturesWithGithub.adminUser);
+  axiosMock.onGet("/api/courses/7").reply(200, course);
+  renderPage();
+  await screen.findByTestId("OnboardingPreviewPage-banner");
+};
+
+const chooseSchool = async () => {
+  await screen.findByText(/We need a bit of information from you/);
+  fireEvent.change(screen.getByTestId("SelectSchool-typeahead"), {
+    target: { value: "University of California, Santa Barbara" },
+  });
+  fireEvent.click(screen.getByText("University of California, Santa Barbara"));
+  return screen.findByText("Log In");
+};
+
+const joinButton = () =>
+  screen.getByTestId(
+    "OnboardingCoursesTable-cell-row-0-col-studentStatus-button",
+  );
+
 describe("OnboardingPreviewPage tests", () => {
   beforeEach(() => {
     axiosMock.reset();
@@ -64,12 +85,10 @@ describe("OnboardingPreviewPage tests", () => {
     await screen.findByTestId("OnboardingPreviewPage-banner");
   });
 
-  test("an admin sees the banner, the stage picker and the first stage", async () => {
-    setUser(apiCurrentUserFixturesWithGithub.adminUser);
-    axiosMock.onGet("/api/courses/7").reply(200, course);
-    renderPage();
+  test("an admin sees the banner, the controls and the first stage", async () => {
+    await renderAsAdmin();
 
-    const banner = await screen.findByTestId("OnboardingPreviewPage-banner");
+    const banner = screen.getByTestId("OnboardingPreviewPage-banner");
     expect(banner).toHaveClass("alert-info");
     expect(banner).toHaveTextContent("Student onboarding preview");
     expect(banner).toHaveTextContent("CMPSC 156");
@@ -102,6 +121,10 @@ describe("OnboardingPreviewPage tests", () => {
       screen.getByTestId("OnboardingPreviewPage-stage-github"),
     ).toHaveClass("btn-outline-primary");
 
+    const reset = screen.getByTestId("OnboardingPreviewPage-reset");
+    expect(reset).toHaveTextContent("Reset preview");
+    expect(reset).toHaveClass("btn-outline-secondary");
+
     expect(screen.getByText("Welcome to Frontiers!")).toBeInTheDocument();
     expect(progressValue()).toBe("25");
     expect(screen.getByRole("progressbar").closest(".row")).toHaveClass(
@@ -121,11 +144,8 @@ describe("OnboardingPreviewPage tests", () => {
     );
   });
 
-  test("switching stages shows each shared screen with its progress", async () => {
-    setUser(apiCurrentUserFixturesWithGithub.adminUser);
-    axiosMock.onGet("/api/courses/7").reply(200, course);
-    renderPage();
-    await screen.findByTestId("OnboardingPreviewPage-banner");
+  test("the stage buttons jump straight to each screen", async () => {
+    await renderAsAdmin();
 
     fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-github"));
     expect(
@@ -145,11 +165,7 @@ describe("OnboardingPreviewPage tests", () => {
     expect(
       screen.getByTestId("OnboardingCoursesTable-cell-row-0-col-courseName"),
     ).toHaveTextContent("CMPSC 156");
-    expect(
-      screen.getByTestId(
-        "OnboardingCoursesTable-cell-row-0-col-studentStatus-button",
-      ),
-    ).toHaveTextContent("Join Course");
+    expect(joinButton()).toHaveTextContent("Join Course");
 
     fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-complete"));
     expect(screen.getByText("Complete!")).toBeInTheDocument();
@@ -160,52 +176,142 @@ describe("OnboardingPreviewPage tests", () => {
     expect(progressValue()).toBe("25");
   });
 
-  test("preview controls do not sign in, join or change anything", async () => {
-    setUser(apiCurrentUserFixturesWithGithub.adminUser);
-    axiosMock.onGet("/api/courses/7").reply(200, course);
-    renderPage();
-    await screen.findByTestId("OnboardingPreviewPage-banner");
+  test("the onboarding controls walk a simulated student through the flow", async () => {
+    await renderAsAdmin();
 
-    // school stage
-    await screen.findByText(/We need a bit of information from you/);
-    fireEvent.change(screen.getByTestId("SelectSchool-typeahead"), {
-      target: { value: "University of California, Santa Barbara" },
-    });
-    fireEvent.click(
-      screen.getByText("University of California, Santa Barbara"),
-    );
-    const schoolLogIn = await screen.findByText("Log In");
+    // school sign in moves to the GitHub stage
+    const schoolLogIn = await chooseSchool();
     expect(schoolLogIn).not.toHaveAttribute("href");
     fireEvent.click(schoolLogIn);
+    expect(
+      screen.getByText("Next, you'll need to sign in with GitHub"),
+    ).toBeInTheDocument();
+    expect(progressValue()).toBe("50");
+    expect(
+      screen.getByTestId("OnboardingPreviewPage-stage-github"),
+    ).toHaveClass("btn-primary");
 
-    // GitHub stage
-    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-github"));
+    // GitHub sign in moves to course selection
     const githubLogIn = screen.getByText("Log In");
     expect(githubLogIn).not.toHaveAttribute("href");
     fireEvent.click(githubLogIn);
+    expect(screen.getByText("Joining Courses")).toBeInTheDocument();
+    expect(progressValue()).toBe("75");
 
-    // course stage
-    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
-    fireEvent.click(
-      screen.getByTestId(
-        "OnboardingCoursesTable-cell-row-0-col-studentStatus-button",
-      ),
-    );
+    // joining the sample course changes its status like a real join would
+    expect(joinButton()).toHaveTextContent("Join Course");
+    fireEvent.click(joinButton());
+    expect(screen.getByText("View Invite")).toBeInTheDocument();
+    expect(screen.queryByText("Join Course")).not.toBeInTheDocument();
+
+    // Continue shows the completion screen
     const continueButton = screen.getByText("Continue");
     expect(continueButton).not.toHaveAttribute("href");
     fireEvent.click(continueButton);
-    expect(screen.getByText("Joining Courses")).toBeInTheDocument();
+    expect(screen.getByText("Complete!")).toBeInTheDocument();
+    expect(progressValue()).toBe("100");
 
-    // complete stage
-    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-complete"));
+    // returning home keeps the preview open
     const homeButton = screen.getByText("Click here to return home");
     expect(homeButton).not.toHaveAttribute("href");
     fireEvent.click(homeButton);
     expect(screen.getByText("Complete!")).toBeInTheDocument();
 
+    // nothing real happened
     expect(sessionStorage.getItem("redirect")).toBeNull();
     expect(axiosMock.history.put.length).toBe(0);
     expect(axiosMock.history.post.length).toBe(0);
+  });
+
+  test("View Invite stays in the preview and explains what a student would see", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    await renderAsAdmin();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    expect(
+      screen.queryByTestId("OnboardingPreviewPage-invite-notice"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(joinButton());
+    const viewInvite = joinButton();
+    expect(viewInvite).toHaveTextContent("View Invite");
+    fireEvent.click(viewInvite);
+    expect(openSpy).not.toHaveBeenCalled();
+    const notice = screen.getByTestId("OnboardingPreviewPage-invite-notice");
+    expect(notice).toHaveClass("alert-secondary");
+    expect(notice).toHaveTextContent(
+      `In the real flow, View Invite opens the GitHub invitation for the ${course.orgName} organization in a new tab. The preview does not open it, since no invitation was sent.`,
+    );
+    // still on the course stage of the preview
+    expect(screen.getByText("Joining Courses")).toBeInTheDocument();
+    expect(progressValue()).toBe("75");
+    expect(axiosMock.history.put.length).toBe(0);
+    expect(axiosMock.history.post.length).toBe(0);
+    openSpy.mockRestore();
+  });
+
+  test("the sample course name is not a link out of the preview", async () => {
+    await renderAsAdmin();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    const nameCell = screen.getByTestId(
+      "OnboardingCoursesTable-cell-row-0-col-courseName",
+    );
+    expect(nameCell).toHaveTextContent("CMPSC 156");
+    expect(
+      screen.queryByTestId(
+        "OnboardingCoursesTable-cell-row-0-col-courseName-link",
+      ),
+    ).not.toBeInTheDocument();
+    expect(nameCell.querySelector("a")).toBeNull();
+    fireEvent.click(nameCell);
+    expect(screen.getByText("Joining Courses")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("OnboardingPreviewPage-banner"),
+    ).toBeInTheDocument();
+  });
+
+  test("Reset preview clears the View Invite notice", async () => {
+    vi.spyOn(window, "open").mockImplementation(() => null);
+    await renderAsAdmin();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    fireEvent.click(joinButton());
+    fireEvent.click(joinButton());
+    expect(
+      screen.getByTestId("OnboardingPreviewPage-invite-notice"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-reset"));
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    expect(
+      screen.queryByTestId("OnboardingPreviewPage-invite-notice"),
+    ).not.toBeInTheDocument();
+    expect(joinButton()).toHaveTextContent("Join Course");
+    vi.restoreAllMocks();
+  });
+
+  test("Reset preview restores the initial sample student and course", async () => {
+    await renderAsAdmin();
+
+    // join the course, then reset from the completion screen
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    fireEvent.click(joinButton());
+    expect(screen.getByText("View Invite")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Continue"));
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-reset"));
+    expect(screen.getByText("Welcome to Frontiers!")).toBeInTheDocument();
+    expect(progressValue()).toBe("25");
+
+    // the sample course is back to not joined
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-courses"));
+    expect(joinButton()).toHaveTextContent("Join Course");
+
+    // a school picked before reset is cleared
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-stage-school"));
+    await chooseSchool();
+    expect(screen.getByTestId("SignInCard-base-google")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("OnboardingPreviewPage-reset"));
+    expect(
+      screen.queryByTestId("SignInCard-base-google"),
+    ).not.toBeInTheDocument();
+
+    expect(axiosMock.history.put.length).toBe(0);
   });
 
   test("the course's instructor returns to the instructor view", async () => {

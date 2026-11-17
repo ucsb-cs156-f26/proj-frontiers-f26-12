@@ -205,6 +205,7 @@ describe("StaffCourseShowPage tests", () => {
       ENABLE_API_KEYS: true,
       SLACK_INTEGRATION: true,
       NEW_ASSIGNMENT_FEATURES: true,
+      ENABLE_CATME: true,
     };
 
     const setupCourse = (options = allOptions) => {
