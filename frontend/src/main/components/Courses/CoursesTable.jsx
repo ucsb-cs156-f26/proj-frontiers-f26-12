@@ -28,12 +28,17 @@ export default function CoursesTable({
   joinCallback,
   isLoading,
   courseNameLinkPrefix,
+  viewInviteCallback,
 }) {
-  const viewInviteCallback = (cell) => {
+  const openGithubInvite = (cell) => {
     const organizationName = cell.row.original.orgName;
     const gitInvite = `https://github.com/orgs/${organizationName}/invitation`;
     window.open(gitInvite, "_blank");
   };
+
+  // A caller such as the onboarding preview can supply its own handler so
+  // View Invite does not open the real GitHub invitation.
+  const handleViewInvite = viewInviteCallback ?? openGithubInvite;
 
   const columns = courseNameLinkPrefix
     ? baseColumns.map((column) =>
@@ -146,7 +151,7 @@ export default function CoursesTable({
               <span>
                 <Button
                   variant={"primary"}
-                  onClick={() => viewInviteCallback(cell)}
+                  onClick={() => handleViewInvite(cell)}
                   data-testid={`${testId}-cell-row-${cell.row.index}-col-${cell.column.id}-button`}
                 >
                   View Invite
