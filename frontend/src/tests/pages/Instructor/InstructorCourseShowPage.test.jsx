@@ -559,6 +559,60 @@ describe("InstructorCourseShowPage tests", () => {
     ).toBeInTheDocument();
   });
 
+  test("dismisses the base permission warning and keeps it hidden after remounting the course page", async () => {
+    setupInstructorUser();
+    const course = {
+      ...coursesFixtures.severalCourses[0],
+      hideBasePermissionWarning: false,
+    };
+    axiosMock.onGet("/api/courses/7").reply(() => [200, { ...course }]);
+    axiosMock.onGet("/api/courses/warnings/7").reply(200, {
+      showDefaultBasePermissions: true,
+    });
+    axiosMock
+      .onPost("/api/courses/warnings/hideBasePermissionWarning/7")
+      .reply(() => {
+        course.hideBasePermissionWarning = true;
+        return [200, { message: "saved" }];
+      });
+    const page = (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/instructor/courses/7"]}>
+          <Routes>
+            <Route
+              path="/instructor/courses/:id"
+              element={<InstructorCourseShowPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { unmount } = render(page);
+    fireEvent.click(
+      await screen.findByTestId(
+        "CourseWarningBanner-defaultBasePermission-dismiss",
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData(["/api/courses/7"]).hideBasePermissionWarning,
+      ).toBe(true),
+    );
+    unmount();
+    queryClient.clear();
+    render(page);
+    await screen.findByText("CMPSC 156");
+    expect(
+      screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+    ).not.toBeInTheDocument();
+    expect(axiosMock.history.post).toHaveLength(1);
+  });
+
   test("hides default base permission warning when hideBasePermissionWarning is true", async () => {
     setupInstructorUser();
 
@@ -1451,6 +1505,123 @@ describe("InstructorCourseShowPage tests", () => {
     });
   });
 
+  describe("CATME tab", () => {
+    const setupCATME = (enabled) => {
+      setupInstructorUser();
+      axiosMock.onGet("/api/courses/7").reply(200, {
+        ...coursesFixtures.severalCourses[0],
+        id: 7,
+        instructorEmail: "diba@ucsb.edu",
+      });
+      axiosMock.onGet("/api/course/options").reply(200, {
+        ENABLE_CATME: enabled,
+      });
+    };
+
+    test("shows a selectable CATME tab when enabled", async () => {
+      setupCATME(true);
+      renderCourse7();
+
+      const tab = await screen.findByRole("tab", { name: "CATME" });
+      expect(tab).toHaveAttribute("data-rr-ui-event-key", "catme");
+      fireEvent.click(tab);
+      expect(tab).toHaveAttribute("aria-selected", "true");
+      const content = screen.getByTestId(
+        "InstructorCourseShowPage-catme-tab-component",
+      );
+      expect(content).toBeVisible();
+      expect(content).toHaveTextContent(
+        "Download this course's roster for use in CATME.",
+      );
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Download CSV Roster in CATME format",
+        }),
+      );
+      expect(openSpy).toHaveBeenCalledExactlyOnceWith(
+        "/api/csv/catme?courseId=7",
+        "_blank",
+      );
+      openSpy.mockRestore();
+      expect(content.parentElement).toHaveClass("pt-2");
+      expect(window.localStorage.getItem("frontiers.courseTab.7")).toBe(
+        "catme",
+      );
+    });
+
+    test.each([false, undefined, "true"])(
+      "hides CATME when the option is %s",
+      async (enabled) => {
+        setupCATME(enabled);
+        renderCourse7();
+        await waitFor(() =>
+          expect(
+            queryClient.getQueryData(["/api/course/options/?courseId=7"]),
+          ).toEqual({ ENABLE_CATME: enabled }),
+        );
+        expect(
+          screen.queryByRole("tab", { name: "CATME" }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByTestId("InstructorCourseShowPage-catme-tab-component"),
+        ).not.toBeInTheDocument();
+      },
+    );
+
+    test("updates visibility from Settings and retains the saved option after remount", async () => {
+      setupCATME(false);
+      let enabled = false;
+      axiosMock
+        .onGet("/api/course/options")
+        .reply(() => [200, { ENABLE_CATME: enabled }]);
+      axiosMock.onPost("/api/course/options").reply((request) => {
+        enabled = request.params.enabled;
+        return [200, { ENABLE_CATME: enabled }];
+      });
+
+      const { unmount } = renderCourse7();
+      fireEvent.click(await screen.findByRole("tab", { name: "Settings" }));
+      const toggle = await screen.findByRole("checkbox", {
+        name: "Enable CATME",
+      });
+      await waitFor(() => expect(toggle).toBeEnabled());
+      expect(toggle).not.toBeChecked();
+      expect(
+        screen.queryByRole("tab", { name: "CATME" }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(toggle);
+      await screen.findByRole("tab", { name: "CATME" });
+      expect(axiosMock.history.post[0].params).toEqual({
+        courseId: "7",
+        option: "ENABLE_CATME",
+        enabled: true,
+      });
+
+      unmount();
+      queryClient.clear();
+      renderCourse7();
+      await screen.findByRole("tab", { name: "CATME" });
+      fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+      const savedToggle = await screen.findByRole("checkbox", {
+        name: "Enable CATME",
+      });
+      await waitFor(() => expect(savedToggle).toBeEnabled());
+      expect(savedToggle).toBeChecked();
+      fireEvent.click(savedToggle);
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("tab", { name: "CATME" }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(axiosMock.history.post[1].params).toEqual({
+        courseId: "7",
+        option: "ENABLE_CATME",
+        enabled: false,
+      });
+    });
+  });
+
   describe("EduDora tab", () => {
     const setupCourse7WithEduDoraOption = (enableEduDora) => {
       setupInstructorUser();
@@ -1977,6 +2148,7 @@ describe("InstructorCourseShowPage tests", () => {
       ["dokku", "Dokku"],
       ["slack", "Slack"],
       ["api-keys", "API Keys"],
+      ["catme", "CATME"],
       ["settings", "Settings"],
     ])("?tab=%s opens the %s tab, and remembers it", async (tab, title) => {
       setupCourse7({
@@ -1985,6 +2157,7 @@ describe("InstructorCourseShowPage tests", () => {
         ENABLE_API_KEYS: true,
         NEW_ASSIGNMENT_FEATURES: true,
         SLACK_INTEGRATION: true,
+        ENABLE_CATME: true,
       });
       renderAt(`/instructor/courses/7?tab=${tab}`);
 
@@ -2113,6 +2286,20 @@ describe("InstructorCourseShowPage tests", () => {
       expect(screen.getByTestId("location-probe").textContent).toBe(
         "/instructor/courses/7?tab=api-keys",
       );
+    });
+
+    test("?tab=catme falls back to Assignments when CATME is disabled", async () => {
+      setupCourse7({ ENABLE_CATME: false });
+      renderAt("/instructor/courses/7?tab=catme");
+      await waitFor(() =>
+        expect(
+          queryClient.getQueryData(["/api/course/options/?courseId=7"]),
+        ).toEqual(expect.objectContaining({ ENABLE_CATME: false })),
+      );
+      expect(
+        screen.queryByRole("tab", { name: "CATME" }),
+      ).not.toBeInTheDocument();
+      expect(selectedTab()).toEqual(["Assignments"]);
     });
 
     test("?tab=edudora shows the Assignments tab when the Enable EduDora option is off", async () => {

@@ -2,6 +2,7 @@ package edu.ucsb.cs156.frontiers.repositories;
 
 import edu.ucsb.cs156.frontiers.entities.Course;
 import edu.ucsb.cs156.frontiers.entities.CourseStaff;
+import edu.ucsb.cs156.frontiers.entities.User;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,9 @@ public interface CourseStaffRepository extends JpaRepository<CourseStaff, Long> 
    * @return List of CourseStaff (empty if not found)
    */
   List<CourseStaff> findAllByEmail(String email);
+
+  /** Returns all CourseStaff rows attached to the given user. */
+  List<CourseStaff> findAllByUser(User user);
 
   /**
    * This method returns a list of CourseStaff entities associated with a given course ID.
