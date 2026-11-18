@@ -295,6 +295,7 @@ describe("StaffCourseShowPage tests", () => {
         "Teams",
         "Assignments",
         "New Assignments",
+        "Emails",
         "Jobs",
         "Downloads",
       ]);
