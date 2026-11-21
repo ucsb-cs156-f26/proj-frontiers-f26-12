@@ -122,10 +122,6 @@ describe("TeamsTable tests", () => {
       </QueryClientProvider>,
     );
 
-    // Expand the accordion
-    const teamAccordion = screen.getByTestId("TeamsTable-3-name");
-    fireEvent.click(teamAccordion);
-
     expect(
       screen.queryByTestId("TeamsTable-3-cell-row-0-col-Remove-button"),
     ).not.toBeInTheDocument();
@@ -211,10 +207,6 @@ describe("TeamsTable tests", () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-
-    // Expand the accordion
-    const teamAccordion = screen.getByTestId("TeamsTable-3-name");
-    fireEvent.click(teamAccordion);
 
     // Wait for the remove button to appear and get the element
     const deleteButton = await screen.findByTestId(
@@ -781,18 +773,99 @@ describe("TeamsTable tests", () => {
     );
 
     const header = screen.getByTestId(`${testId}-3-name`).closest("button");
-    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(header).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.click(screen.getByTestId(`${testId}-3-add-member-button`));
     expect(screen.getByTestId(`${testId}-post-modal`)).toBeInTheDocument();
-    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(header).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.click(screen.getByTestId(`${testId}-3-delete-button`));
     await waitFor(() => expect(axiosMock.history.delete.length).toBe(1));
-    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(header).toHaveAttribute("aria-expanded", "true");
 
     // the header itself still toggles
     fireEvent.click(header);
-    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(header).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("expand all button opens all accordion items", async () => {
+    axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamsTable
+            teams={teamsFixtures.teams}
+            currentUser={currentUserFixtures.instructorUser}
+            courseId="12"
+            testIdPrefix={testId}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Collapse all first so we have something to expand
+    fireEvent.click(screen.getByTestId(`${testId}-collapse-all-button`));
+
+    const header3 = screen.getByTestId(`${testId}-3-name`).closest("button");
+    const header4 = screen.getByTestId(`${testId}-4-name`).closest("button");
+    expect(header3).toHaveAttribute("aria-expanded", "false");
+    expect(header4).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByTestId(`${testId}-expand-all-button`));
+
+    expect(header3).toHaveAttribute("aria-expanded", "true");
+    expect(header4).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("collapse all button closes all accordion items", async () => {
+    axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamsTable
+            teams={teamsFixtures.teams}
+            currentUser={currentUserFixtures.instructorUser}
+            courseId="12"
+            testIdPrefix={testId}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Accordion starts open by default
+    const header3 = screen.getByTestId(`${testId}-3-name`).closest("button");
+    const header4 = screen.getByTestId(`${testId}-4-name`).closest("button");
+    expect(header3).toHaveAttribute("aria-expanded", "true");
+    expect(header4).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByTestId(`${testId}-collapse-all-button`));
+
+    expect(header3).toHaveAttribute("aria-expanded", "false");
+    expect(header4).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("expand/collapse buttons are not shown in student view", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamsTable
+            teams={teamsFixtures.teams}
+            currentUser={currentUserFixtures.studentUser}
+            courseId="12"
+            testIdPrefix={testId}
+            instructorView={false}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.queryByTestId(`${testId}-expand-all-button`),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`${testId}-collapse-all-button`),
+    ).not.toBeInTheDocument();
   });
 });
