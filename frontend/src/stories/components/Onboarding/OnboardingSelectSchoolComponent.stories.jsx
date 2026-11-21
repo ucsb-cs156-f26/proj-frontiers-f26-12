@@ -2,6 +2,7 @@ import OnboardingSelectSchoolComponent from "main/components/Onboarding/Onboardi
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Container } from "react-bootstrap";
 import { http, HttpResponse } from "msw";
+import { fn } from "storybook/test";
 import { systemInfoFixtures } from "fixtures/systemInfoFixtures";
 
 export default {
@@ -23,10 +24,10 @@ const QueryWrapper = ({ children }) => {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 };
-const Template = () => (
+const Template = (args) => (
   <QueryWrapper>
     <Container>
-      <OnboardingSelectSchoolComponent />
+      <OnboardingSelectSchoolComponent {...args} />
     </Container>
   </QueryWrapper>
 );
@@ -65,3 +66,10 @@ NoGoogle.parameters = {
     ],
   },
 };
+
+// Preview mode: Log In calls onSignIn instead of starting OAuth
+export const Preview = Template.bind({});
+Preview.args = {
+  onSignIn: fn(),
+};
+Preview.parameters = Default.parameters;
