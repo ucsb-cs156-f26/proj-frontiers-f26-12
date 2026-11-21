@@ -627,7 +627,9 @@ describe("StaffTabComponent Tests", () => {
       .onGet("/api/coursestaff/course?courseId=7")
       .reply(200, courseStaffFixtures.threeStaff);
     axiosMock.onGet("/api/courses/emails").reply(200, "a@ucsb.edu");
-    axiosMock.onPost("/api/coursestaff/upload/csv").reply(200, { count: 2 });
+    axiosMock
+      .onPost("/api/coursestaff/upload/csv")
+      .reply(200, { count: 2, errors: [] });
 
     render(
       <QueryClientProvider client={queryClientSpecific}>
@@ -672,8 +674,10 @@ describe("StaffTabComponent Tests", () => {
     expect(axiosMock.history.post[0].url).toBe("/api/coursestaff/upload/csv");
     expect(axiosMock.history.post[0].params).toEqual({ courseId: 7 });
     expect(axiosMock.history.post[0].data.get("file")).toBe(file);
-    await waitFor(() => expect(mockToast).toBeCalled());
-    expect(mockToast).toBeCalledWith("Staff roster successfully updated.");
+    expect(
+      await screen.findByText("Staff added: 2. Rows not imported: 0."),
+    ).toBeInTheDocument();
+    expect(mockToast).not.toBeCalled();
 
     await waitFor(() => {
       expect(
@@ -694,7 +698,7 @@ describe("StaffTabComponent Tests", () => {
     });
   });
 
-  test("CSV upload shows error toast on failure", async () => {
+  test("CSV upload keeps the form open and shows a readable error on failure", async () => {
     const queryClientSpecific = new QueryClient({
       defaultOptions: {
         queries: {
@@ -745,18 +749,12 @@ describe("StaffTabComponent Tests", () => {
     );
 
     await waitFor(() => expect(axiosMock.history.post.length).toEqual(1));
-    await waitFor(() =>
-      expect(mockToastError).toBeCalledWith(
-        expect.stringContaining("Error uploading CSV:"),
-      ),
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Invalid CSV format",
     );
-
-    // Verify modal closes after error
-    await waitFor(() => {
-      expect(
-        screen.queryByTestId(`${testId}-csv-modal`),
-      ).not.toBeInTheDocument();
-    });
+    expect(screen.getByTestId(`${testId}-csv-modal`)).toBeInTheDocument();
+    expect(screen.getByTestId("CourseStaffCSVUploadForm-submit")).toBeEnabled();
+    expect(mockToastError).not.toBeCalled();
   });
 
   test("CSV help icon opens help page", async () => {

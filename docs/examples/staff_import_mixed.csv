@@ -1,0 +1,6 @@
+firstName,lastName,email
+New,Staff,new@example.com
+Existing,Staff,existing@example.com
+Repeated,Staff,new@example.com
+Missing,Email,
+Second,New,second@example.com

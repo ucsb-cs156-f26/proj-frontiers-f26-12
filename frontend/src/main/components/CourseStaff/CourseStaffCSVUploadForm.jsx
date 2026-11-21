@@ -2,7 +2,10 @@ import { useForm } from "react-hook-form";
 import { Button, Form } from "react-bootstrap";
 import React from "react";
 
-export default function CourseStaffCSVUploadForm({ submitAction }) {
+export default function CourseStaffCSVUploadForm({
+  submitAction,
+  isPending = false,
+}) {
   const {
     register,
     formState: { errors },
@@ -18,6 +21,7 @@ export default function CourseStaffCSVUploadForm({ submitAction }) {
           id="upload"
           type="file"
           accept=".csv"
+          disabled={isPending}
           isInvalid={Boolean(errors.upload)}
           {...register("upload", { required: true })}
         />
@@ -29,8 +33,9 @@ export default function CourseStaffCSVUploadForm({ submitAction }) {
         type="submit"
         data-testid="CourseStaffCSVUploadForm-submit"
         className="mt-3"
+        disabled={isPending}
       >
-        Upload
+        {isPending ? "Uploading…" : "Upload"}
       </Button>
     </Form>
   );
