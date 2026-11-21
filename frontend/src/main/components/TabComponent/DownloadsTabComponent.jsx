@@ -12,10 +12,15 @@ export default function DownloadsTabComponent({ courseId, testIdPrefix }) {
     onSuccessDownloadTriggered();
   };
 
+  const downloadTeamsCsv = () => {
+    window.open(`/api/csv/nameandteam?courseId=${courseId}`, "_blank");
+  };
+
   return (
     <div data-testid={`${testIdPrefix}-downloadsTab`}>
       <CourseDownloadsForm
         downloadAction={handleSubmit}
+        teamsDownloadAction={downloadTeamsCsv}
         testIdPrefix={testIdPrefix}
       />
     </div>

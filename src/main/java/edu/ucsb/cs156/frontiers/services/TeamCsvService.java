@@ -3,6 +3,7 @@ package edu.ucsb.cs156.frontiers.services;
 import edu.ucsb.cs156.frontiers.entities.RosterStudent;
 import edu.ucsb.cs156.frontiers.models.NameAndTeam;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +24,10 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class TeamCsvService {
+
+  public static final int NAMES_PER_COLUMN = 24;
+
+  public static final int TEAMS_PER_COLUMN = 4;
 
   /**
    * Converts a name to Title Case: the first letter of each word is upper case and the rest lower
@@ -207,8 +212,13 @@ public class TeamCsvService {
    */
   public void writeName2TeamCsv(Writer writer, List<NameAndTeam> entries, int columns)
       throws IOException {
+    writeName2TeamColumns(writer, layoutColumns(entries, columns));
+  }
+
+  private void writeName2TeamColumns(Writer writer, List<List<NameAndTeam>> columns)
+      throws IOException {
     List<List<List<String>>> layout = new ArrayList<>();
-    for (List<NameAndTeam> column : layoutColumns(entries, columns)) {
+    for (List<NameAndTeam> column : columns) {
       layout.add(column.stream().map(e -> List.of(e.name(), e.team())).toList());
     }
     writeColumnsCsv(writer, List.of("Name", "Team"), layout);
@@ -255,8 +265,13 @@ public class TeamCsvService {
    */
   public void writeTeamTableCsv(Writer writer, List<NameAndTeam> entries, int columns)
       throws IOException {
+    writeTeamTableColumns(writer, layoutColumns(groupByTeam(entries), columns));
+  }
+
+  private void writeTeamTableColumns(Writer writer, List<List<List<NameAndTeam>>> columns)
+      throws IOException {
     List<List<List<String>>> layout = new ArrayList<>();
-    for (List<List<NameAndTeam>> column : layoutColumns(groupByTeam(entries), columns)) {
+    for (List<List<NameAndTeam>> column : columns) {
       List<List<String>> rows = new ArrayList<>();
       for (List<NameAndTeam> team : column) {
         for (NameAndTeam entry : team) {
@@ -266,6 +281,45 @@ public class TeamCsvService {
       layout.add(rows);
     }
     writeColumnsCsv(writer, List.of("Team", "Name"), layout);
+  }
+
+  /**
+   * Splits the items into columns of at most the given size, filling column by column, so that
+   * every column but the last is full. There is always at least one column.
+   *
+   * @param <T> the type of item being laid out (e.g. a student, or a whole team)
+   * @param items the items, in order
+   * @param size the number of items per column, at least 1
+   * @return the columns, all of exactly {@code size} items except possibly the last
+   */
+  public <T> List<List<T>> fillColumns(List<T> items, int size) {
+    List<List<T>> result = new ArrayList<>();
+    for (int start = 0; start < items.size(); start += size) {
+      result.add(items.subList(start, Math.min(start + size, items.size())));
+    }
+    if (result.isEmpty()) {
+      result.add(items);
+    }
+    return result;
+  }
+
+  /**
+   * Writes the "Name,Team" table under "by name", then the "Team,Name" table under "by team" line.
+   * The "Name,Team" table has {@link #NAMES_PER_COLUMN} rows per column, and as many columns as it
+   * takes. The "Team,Name" table has {@link #TEAMS_PER_COLUMN} teams per column, and as many
+   * columns as it takes.
+   *
+   * @param writer where to write the CSV
+   * @param entries the entries, in order
+   * @throws IOException if writing fails
+   */
+  public void writeNameAndTeamTablesCsv(Writer writer, List<NameAndTeam> entries)
+      throws IOException {
+    StringWriter name = new StringWriter();
+    writeName2TeamColumns(name, fillColumns(entries, NAMES_PER_COLUMN));
+    StringWriter team = new StringWriter();
+    writeTeamTableColumns(team, fillColumns(groupByTeam(entries), TEAMS_PER_COLUMN));
+    writer.write("by name\r\n" + name + "by team\r\n" + team);
   }
 
   private static String join(String first, String lastPart) {
