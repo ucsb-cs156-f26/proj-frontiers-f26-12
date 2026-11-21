@@ -288,10 +288,33 @@ export default function TeamsTable({
         </ModalHeader>
         <ModalBody>{errorPostMemberModal.message}</ModalBody>
       </Modal>
+      {instructorView && (
+        <span className="d-flex gap-2 mb-2">
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={() =>
+              setSelectedTeamKeys(teams.map((_team, index) => `${index}`))
+            }
+            data-testid={`${testIdPrefix}-expand-all-button`}
+          >
+            Expand All
+          </Button>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            // Stryker disable next-line ArrayDeclaration : empty array collapses all
+            onClick={() => setSelectedTeamKeys([])}
+            data-testid={`${testIdPrefix}-collapse-all-button`}
+          >
+            Collapse All
+          </Button>
+        </span>
+      )}
       <Accordion
-        alwaysOpen={!instructorView}
-        activeKey={instructorView ? undefined : openTeamKeys}
-        onSelect={instructorView ? undefined : setSelectedTeamKeys}
+        alwaysOpen={true}
+        activeKey={openTeamKeys}
+        onSelect={setSelectedTeamKeys}
         data-testid={`${testIdPrefix}-accordion`}
       >
         {teams.map((team, index) => (
