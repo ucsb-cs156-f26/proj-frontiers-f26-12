@@ -55,6 +55,147 @@ describe("StaffTabComponent Tests", () => {
     axiosMock.restore();
   });
 
+  const openStaffForm = async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={7}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add Staff Member" }),
+    );
+    await userEvent.type(screen.getByLabelText("First Name"), "Casey");
+    await userEvent.type(screen.getByLabelText("Last Name"), "Reviewer");
+    await userEvent.type(screen.getByLabelText("Email"), "johnprof@ucsb.edu");
+  };
+
+  const duplicateMessage =
+    "johnprof@ucsb.edu is already on this course's staff. Enter a different email address to add another staff member.";
+
+  test("duplicate feedback preserves the form and roster, then a corrected retry succeeds", async () => {
+    let roster = courseStaffFixtures.oneStaff;
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=7")
+      .reply(() => [200, roster]);
+    axiosMock
+      .onPost("/api/coursestaff/post")
+      .replyOnce(409, { message: duplicateMessage });
+    let finishRequest;
+    axiosMock.onPost("/api/coursestaff/post").reply(
+      () =>
+        new Promise((resolve) => {
+          finishRequest = resolve;
+        }),
+    );
+
+    await openStaffForm();
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      duplicateMessage,
+    );
+    expect(screen.getByLabelText("First Name")).toHaveValue("Casey");
+    expect(screen.getByLabelText("Last Name")).toHaveValue("Reviewer");
+    expect(screen.getByLabelText("Email")).toHaveValue("johnprof@ucsb.edu");
+    expect(screen.getByText("Dr. John")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
+
+    await userEvent.clear(screen.getByLabelText("Email"));
+    await userEvent.type(
+      screen.getByLabelText("Email"),
+      "new.staff@example.com",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(axiosMock.history.post).toHaveLength(2));
+    expect(axiosMock.history.post[1].params).toEqual({
+      courseId: 7,
+      firstName: "Casey",
+      lastName: "Reviewer",
+      email: "new.staff@example.com",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(axiosMock.history.post).toHaveLength(2);
+
+    const newStaff = {
+      id: 2,
+      firstName: "Casey",
+      lastName: "Reviewer",
+      email: "new.staff@example.com",
+    };
+    roster = [...roster, newStaff];
+    finishRequest([200, newStaff]);
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId(`${testId}-post-modal`),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      await screen.findByText("new.staff@example.com"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Dr. John")).toBeInTheDocument();
+    expect(mockToast).toHaveBeenCalledWith(
+      "Staff roster successfully updated.",
+    );
+  });
+
+  test("closing a duplicate error and reopening starts a fresh form", async () => {
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=7")
+      .reply(200, courseStaffFixtures.oneStaff);
+    axiosMock
+      .onPost("/api/coursestaff/post")
+      .reply(409, { message: duplicateMessage });
+    await openStaffForm();
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    await screen.findByRole("alert");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId(`${testId}-post-modal`),
+      ).not.toBeInTheDocument(),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add Staff Member" }),
+    );
+    expect(screen.getByLabelText("Email")).toHaveValue("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  test.each([
+    ["server error", 500, { message: "Internal database details" }],
+    ["missing conflict response", 409, undefined],
+    ["invalid conflict message", 409, { message: { detail: "invalid" } }],
+    ["network error", null, undefined],
+  ])(
+    "%s shows a safe retry message and keeps the form open",
+    async (_name, status, data) => {
+      axiosMock
+        .onGet("/api/coursestaff/course?courseId=7")
+        .reply(200, courseStaffFixtures.oneStaff);
+      if (status === null) {
+        axiosMock.onPost("/api/coursestaff/post").networkError();
+      } else {
+        axiosMock.onPost("/api/coursestaff/post").reply(status, data);
+      }
+      await openStaffForm();
+      await userEvent.click(screen.getByRole("button", { name: "Create" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Could not add staff member. Please try again.",
+      );
+      expect(screen.getByLabelText("Email")).toHaveValue("johnprof@ucsb.edu");
+      expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+      expect(mockToast).not.toHaveBeenCalled();
+    },
+  );
+
   test("StaffTabComponent Renders", async () => {
     axiosMock
       .onGet("/api/coursestaff/course?courseId=1")
