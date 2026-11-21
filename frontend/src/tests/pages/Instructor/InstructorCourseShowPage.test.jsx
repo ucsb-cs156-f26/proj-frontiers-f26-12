@@ -313,7 +313,7 @@ describe("InstructorCourseShowPage tests", () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByText("Students")).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Students" })).toHaveAttribute(
       "data-rr-ui-event-key",
       "students",
     );
@@ -345,7 +345,7 @@ describe("InstructorCourseShowPage tests", () => {
       "data-rr-ui-event-key",
       "downloads",
     );
-    const changeTabs = screen.getByText("Students");
+    const changeTabs = screen.getByRole("tab", { name: "Students" });
     fireEvent.click(changeTabs);
 
     const downloadsTab = screen.getByText("Downloads");
@@ -557,6 +557,60 @@ describe("InstructorCourseShowPage tests", () => {
     expect(
       screen.getByText(/Default Base Permission is not the recommended value/i),
     ).toBeInTheDocument();
+  });
+
+  test("dismisses the base permission warning and keeps it hidden after remounting the course page", async () => {
+    setupInstructorUser();
+    const course = {
+      ...coursesFixtures.severalCourses[0],
+      hideBasePermissionWarning: false,
+    };
+    axiosMock.onGet("/api/courses/7").reply(() => [200, { ...course }]);
+    axiosMock.onGet("/api/courses/warnings/7").reply(200, {
+      showDefaultBasePermissions: true,
+    });
+    axiosMock
+      .onPost("/api/courses/warnings/hideBasePermissionWarning/7")
+      .reply(() => {
+        course.hideBasePermissionWarning = true;
+        return [200, { message: "saved" }];
+      });
+    const page = (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/instructor/courses/7"]}>
+          <Routes>
+            <Route
+              path="/instructor/courses/:id"
+              element={<InstructorCourseShowPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { unmount } = render(page);
+    fireEvent.click(
+      await screen.findByTestId(
+        "CourseWarningBanner-defaultBasePermission-dismiss",
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData(["/api/courses/7"]).hideBasePermissionWarning,
+      ).toBe(true),
+    );
+    unmount();
+    queryClient.clear();
+    render(page);
+    await screen.findByText("CMPSC 156");
+    expect(
+      screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+    ).not.toBeInTheDocument();
+    expect(axiosMock.history.post).toHaveLength(1);
   });
 
   test("hides default base permission warning when hideBasePermissionWarning is true", async () => {
@@ -1118,6 +1172,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Teams",
         "Assignments",
         "New Assignments",
+        "Emails",
         "Jobs",
         "Downloads",
         "Settings",
@@ -1264,6 +1319,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Staff",
         "Teams",
         "Assignments",
+        "Emails",
         "Jobs",
         "Downloads",
         "Dokku",
@@ -1379,6 +1435,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Staff",
         "Teams",
         "Assignments",
+        "Emails",
         "Jobs",
         "Downloads",
         "API Keys",
@@ -1607,6 +1664,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Staff",
         "Teams",
         "Assignments",
+        "Emails",
         "Jobs",
         "Downloads",
         "EduDora",
@@ -1660,6 +1718,44 @@ describe("InstructorCourseShowPage tests", () => {
         screen.queryByRole("tab", { name: "EduDora" }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  test("loads the emails again each time the Emails tab is opened", async () => {
+    setupInstructorUser();
+    axiosMock.onGet("/api/courses/7").reply(200, {
+      ...coursesFixtures.severalCourses[0],
+      id: 7,
+    });
+    const emailsRequests = () =>
+      axiosMock.history.get.filter(
+        (request) =>
+          request.url === "/api/courses/emails" &&
+          request.params.type === "STUDENTS",
+      );
+
+    renderCourse7();
+
+    const emailsTab = await screen.findByRole("tab", { name: "Emails" });
+    expect(
+      screen.queryByTestId("InstructorCourseShowPage-EmailTabComponent"),
+    ).not.toBeInTheDocument();
+    expect(emailsRequests().length).toBe(0);
+
+    fireEvent.click(emailsTab);
+    expect(
+      screen.getByTestId("InstructorCourseShowPage-EmailTabComponent"),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(emailsRequests().length).toBe(1));
+
+    fireEvent.click(screen.getByRole("tab", { name: "Students" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("InstructorCourseShowPage-EmailTabComponent"),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(emailsTab);
+    await waitFor(() => expect(emailsRequests().length).toBe(2));
   });
 
   test("shows the Slack tab when SLACK_INTEGRATION is enabled and a token is set; loads Slack data only when the tab is opened", async () => {
@@ -2046,6 +2142,7 @@ describe("InstructorCourseShowPage tests", () => {
       ["sections", "Sections"],
       ["assignments", "Assignments"],
       ["new-assignments", "New Assignments"],
+      ["emails", "Emails"],
       ["jobs", "Jobs"],
       ["downloads", "Downloads"],
       ["dokku", "Dokku"],

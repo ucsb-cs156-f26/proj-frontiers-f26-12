@@ -19,6 +19,7 @@ import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
 import edu.ucsb.cs156.frontiers.repositories.TeamRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasService;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.entities.Job;
 import edu.ucsb.cs156.jobs.services.JobService;
@@ -50,6 +51,7 @@ public class CanvasController extends ApiController {
   private final RosterStudentRepository rosterStudentRepository;
   private final UpdateUserService updateUserService;
   private final OrganizationMemberService organizationMemberService;
+  private final StudentDropService studentDropService;
   private final TeamMemberRepository teamMemberRepository;
 
   public CanvasController(
@@ -60,7 +62,8 @@ public class CanvasController extends ApiController {
       RosterStudentRepository rosterStudentRepository,
       UpdateUserService updateUserService,
       OrganizationMemberService organizationMemberService,
-      TeamMemberRepository teamMemberRepository) {
+      TeamMemberRepository teamMemberRepository,
+      StudentDropService studentDropService) {
     this.courseRepository = courseRepository;
     this.canvasService = canvasService;
     this.teamRepository = teamRepository;
@@ -69,6 +72,7 @@ public class CanvasController extends ApiController {
     this.updateUserService = updateUserService;
     this.organizationMemberService = organizationMemberService;
     this.teamMemberRepository = teamMemberRepository;
+    this.studentDropService = studentDropService;
   }
 
   /**
@@ -115,6 +119,7 @@ public class CanvasController extends ApiController {
           course.getRosterStudents().stream()
               .filter(student -> student.getRosterStatus() == RosterStatus.DROPPED)
               .toList();
+      studentDropService.handleStudentsDropped(droppedStudents);
       LoadResult successfulResult =
           new LoadResult(
               counts[InsertStatus.INSERTED.ordinal()],
