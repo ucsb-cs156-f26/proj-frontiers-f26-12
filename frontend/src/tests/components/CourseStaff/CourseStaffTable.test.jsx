@@ -529,4 +529,41 @@ describe("CourseStaffTable tests", () => {
       ],
     );
   });
+
+  test("shows Instructor instead of a delete button for the course instructor", () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CourseStaffTable
+            staff={courseStaffFixtures.threeStaff}
+            currentUser={currentUserFixtures.adminUser}
+            courseId="1"
+            instructorEmail="johnprof@ucsb.edu"
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getByRole("columnheader", { name: "Delete" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-Delete-instructor`),
+    ).toHaveTextContent("Instructor");
+    expect(
+      screen.queryByTestId(`${testId}-cell-row-0-col-Delete-button`),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-Edit-button`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${testId}-cell-row-1-col-Delete-button`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${testId}-cell-row-2-col-Delete-button`),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`${testId}-cell-row-1-col-Delete-instructor`),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -34,6 +34,7 @@ import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasApiTokenSecurityService;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
+import edu.ucsb.cs156.frontiers.services.InstructorStaffService;
 import edu.ucsb.cs156.frontiers.services.OrganizationLinkerService;
 import edu.ucsb.cs156.jobs.repositories.JobsRepository;
 import java.util.Collections;
@@ -65,6 +66,8 @@ public class CoursesControllerTests extends ControllerTestCase {
   @Autowired private CurrentUserService currentUserService;
 
   @MockitoBean private OrganizationLinkerService linkerService;
+
+  @MockitoBean private InstructorStaffService instructorStaffService;
 
   @MockitoBean private UserRepository userRepository;
 
@@ -125,6 +128,7 @@ public class CoursesControllerTests extends ControllerTestCase {
 
     // assert
 
+    verify(instructorStaffService).ensureInstructorIsStaff(any(Course.class));
     verify(courseRepository, times(1)).save(eq(course));
 
     String responseString = response.getResponse().getContentAsString();
@@ -1179,6 +1183,7 @@ public class CoursesControllerTests extends ControllerTestCase {
 
     // assert
     verify(courseRepository, times(1)).findById(eq(1L));
+    verify(instructorStaffService, never()).ensureInstructorIsStaff(any());
 
     String responseString = response.getResponse().getContentAsString();
     Map<String, String> expectedMap =
@@ -1234,6 +1239,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     verify(courseRepository, times(1)).findById(eq(1L));
     verify(instructorRepository, times(1)).existsByEmail(eq("new-instructor@example.com"));
     verify(courseRepository, times(1)).save(any(Course.class));
+    verify(instructorStaffService).ensureInstructorIsStaff(any(Course.class));
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(updatedCourse));
@@ -1370,6 +1376,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     verify(instructorRepository, times(1)).existsByEmail(eq("nonexistent@example.com"));
     verify(adminRepository, times(1)).existsByEmail(eq("nonexistent@example.com"));
     verify(courseRepository, never()).save(any(Course.class));
+    verify(instructorStaffService, never()).ensureInstructorIsStaff(any());
   }
 
   /** Test that updateInstructorEmail requires ADMIN role */

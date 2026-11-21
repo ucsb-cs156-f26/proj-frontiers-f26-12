@@ -62,6 +62,14 @@ ItemWithEachStatusAdminUser.args = {
   currentUser: currentUserFixtures.adminUser,
 };
 
+export const ThreeItemsWithInstructor = Template.bind({});
+ThreeItemsWithInstructor.args = {
+  staff: courseStaffFixtures.threeStaff,
+  currentUser: currentUserFixtures.adminUser,
+  courseId: "1",
+  instructorEmail: "johnprof@ucsb.edu",
+};
+
 ItemWithEachStatusAdminUser.parameters = {
   msw: [
     http.delete("/api/coursestaff/delete", ({ request }) => {

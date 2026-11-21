@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import edu.ucsb.cs156.frontiers.entities.Admin;
 import edu.ucsb.cs156.frontiers.repositories.AdminRepository;
+import edu.ucsb.cs156.frontiers.services.InstructorStaffService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,8 @@ class FrontiersStartupTests {
 
   @Mock private AdminRepository adminRepository;
 
+  @Mock private InstructorStaffService instructorStaffService;
+
   private FrontiersStartup frontiersStartup;
 
   @BeforeEach
@@ -21,6 +24,7 @@ class FrontiersStartupTests {
     MockitoAnnotations.openMocks(this);
     frontiersStartup = new FrontiersStartup();
     frontiersStartup.adminRepository = adminRepository;
+    frontiersStartup.instructorStaffService = instructorStaffService;
     frontiersStartup.adminEmails = List.of("acdamstedt@ucsb.edu", "phtcon@ucsb.edu");
   }
 
@@ -79,5 +83,24 @@ class FrontiersStartupTests {
     verify(adminRepository).save(new Admin("acdamstedt@ucsb.edu"));
     verify(adminRepository).save(new Admin("phtcon@ucsb.edu"));
     verifyNoMoreInteractions(adminRepository);
+  }
+
+  @Test
+  void test_AlwaysRunOnStartup_adds_instructors_as_staff() {
+    frontiersStartup.webhookSecret = "valid_secret_123";
+
+    frontiersStartup.alwaysRunOnStartup();
+
+    verify(instructorStaffService).ensureAllInstructorsAreStaff();
+  }
+
+  @Test
+  void test_AlwaysRunOnStartup_handles_instructor_staff_exception() {
+    frontiersStartup.webhookSecret = "valid_secret_123";
+    doThrow(new RuntimeException("Simulated error"))
+        .when(instructorStaffService)
+        .ensureAllInstructorsAreStaff();
+
+    assertDoesNotThrow(() -> frontiersStartup.alwaysRunOnStartup());
   }
 }
