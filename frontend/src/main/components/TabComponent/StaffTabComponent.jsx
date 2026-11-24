@@ -182,13 +182,38 @@ export default function StaffTabComponent({
             </Button>
           </Col>
           <Col>
-            <Button
-              onClick={downloadCsv}
-              data-testid={`${testIdPrefix}-download-csv-button`}
-              className="w-100"
-            >
-              Download Staff CSV
-            </Button>
+            <div className="d-flex align-items-center position-relative">
+              <Button
+                onClick={downloadCsv}
+                data-testid={`${testIdPrefix}-download-csv-button`}
+                className="w-100 pe-5"
+              >
+                Download Staff CSV
+              </Button>
+              <OverlayTrigger
+                placement="right"
+                overlay={
+                  <Tooltip id="download-csv-help-tooltip">
+                    Staff CSV Download Format Help
+                  </Tooltip>
+                }
+              >
+                <BsInfoCircle
+                  onClick={openCsvHelp}
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    right: "0.75rem",
+                    transform: "translateY(-50%)",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    userSelect: "none",
+                  }}
+                  data-testid={`${testIdPrefix}-download-csv-info-icon`}
+                />
+              </OverlayTrigger>
+            </div>
           </Col>
         </Row>
       )}
