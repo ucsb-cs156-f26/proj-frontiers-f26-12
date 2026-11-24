@@ -62,9 +62,23 @@ const basicHandlers = [
       status: 200,
     });
   }),
+  http.get("/api/teams/all", () => {
+    return HttpResponse.json(teamsFixtures.teams, { status: 200 });
+  }),
   http.get("/api/courses/emails", ({ request }) => {
     const format = new URL(request.url).searchParams.get("format");
-    const emails = courseStaff.map((staff) => staff.email);
+    const type = new URL(request.url).searchParams.get("type");
+    const team = new URL(request.url).searchParams.get("team");
+    const studentEmails = team
+      ? []
+      : rosterStudents.map((student) => student.email);
+    const staffEmails = team ? [] : courseStaff.map((staff) => staff.email);
+    const emails =
+      type === "ALL"
+        ? studentEmails.concat(staffEmails)
+        : type === "STAFF"
+          ? staffEmails
+          : studentEmails;
     return HttpResponse.text(
       format === "COMMA_SEPARATED" ? emails.join(",") : emails.join("\r\n"),
       { status: 200 },
@@ -203,7 +217,7 @@ ExampleCourseThreeStudentsThreeStaff.parameters = {
         return HttpResponse.json([], { status: 200 });
       }),
       http.get("/api/teams/all", () => {
-        return HttpResponse.json(teamsFixtures.threeTeams, { status: 200 });
+        return HttpResponse.json(teamsFixtures.teams, { status: 200 });
       }),
       http.get("/api/jobs/course", () => {
         return HttpResponse.json([], { status: 200 });
@@ -236,7 +250,7 @@ ExampleWithOrganizationAgeWarning.parameters = {
         return HttpResponse.json([], { status: 200 });
       }),
       http.get("/api/teams/all", () => {
-        return HttpResponse.json(teamsFixtures.threeTeams, { status: 200 });
+        return HttpResponse.json(teamsFixtures.teams, { status: 200 });
       }),
       http.get("/api/courses/warnings/7", () =>
         HttpResponse.json(showOrganizationAgeWarning),
@@ -272,7 +286,7 @@ ExampleCourseThreeStudentsThreeStaffsThreeJobs.parameters = {
         return HttpResponse.json([], { status: 200 });
       }),
       http.get("/api/teams/all", () => {
-        return HttpResponse.json(teamsFixtures.threeTeams, { status: 200 });
+        return HttpResponse.json(teamsFixtures.teams, { status: 200 });
       }),
       http.get("/api/jobs/course", ({ request }) => {
         const url = new URL(request.url);
@@ -466,6 +480,30 @@ ExampleCourseWithApiKeysTab.parameters = {
     ],
   },
 };
+
+const catmeCourseParameters = (enabled) => ({
+  msw: {
+    handlers: [
+      ...basicHandlers,
+      http.get("/api/rosterStudents/course/7", () =>
+        HttpResponse.json(rosterStudents),
+      ),
+      http.get("/api/coursestaff/course", () => HttpResponse.json([])),
+      http.get("/api/jobs/course", () => HttpResponse.json([])),
+      http.get("/api/course/options", () =>
+        HttpResponse.json({ ENABLE_CATME: enabled }),
+      ),
+    ],
+  },
+});
+
+export const CATMEDisabled = Template.bind({});
+CATMEDisabled.args = { suppressMemoryRouter: true };
+CATMEDisabled.parameters = catmeCourseParameters(false);
+
+export const CATMEEnabled = Template.bind({});
+CATMEEnabled.args = { suppressMemoryRouter: true };
+CATMEEnabled.parameters = catmeCourseParameters(true);
 
 export const ExampleCourseWithEduDoraTab = Template.bind({});
 ExampleCourseWithEduDoraTab.args = {
