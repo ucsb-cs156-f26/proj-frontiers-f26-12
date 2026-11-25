@@ -89,11 +89,17 @@ test.each([0, 2])(
   },
 );
 
-test("a file error remains visible and can be corrected with another upload", async () => {
+test("retrying a failed upload clears the old error while the retry is pending", async () => {
   axiosMock
     .onPost(endpoint)
     .replyOnce(400, { message: "CSV headers do not match expected format." });
-  axiosMock.onPost(endpoint).reply(200, { count: 1, errors: [] });
+  let finishRetry;
+  axiosMock.onPost(endpoint).reply(
+    () =>
+      new Promise((resolve) => {
+        finishRetry = resolve;
+      }),
+  );
   renderStaff();
   await chooseFile();
   await submitFile();
@@ -105,6 +111,15 @@ test("a file error remains visible and can be corrected with another upload", as
     screen.queryByText("Staff CSV import results"),
   ).not.toBeInTheDocument();
   await submitFile();
+  expect(
+    await screen.findByRole("button", { name: "Uploading…" }),
+  ).toBeDisabled();
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(
+    screen.queryByText("CSV headers do not match expected format."),
+  ).not.toBeInTheDocument();
+
+  finishRetry([200, { count: 1, errors: [] }]);
   expect(
     await screen.findByText("Staff added: 1. Rows not imported: 0."),
   ).toBeInTheDocument();
