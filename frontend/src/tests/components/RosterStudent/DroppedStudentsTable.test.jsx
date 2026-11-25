@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const axiosMock = new AxiosMockAdapter(axios);
 const queryClient = new QueryClient();
+const flushQueries = () => new Promise((resolve) => setTimeout(resolve, 100));
 const mockToast = vi.fn();
 vi.mock("react-toastify", async (importOriginal) => {
   return {
@@ -271,5 +272,28 @@ describe("DroppedStudentsTable tests", () => {
         screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
       ).toHaveTextContent("0100"),
     );
+  });
+
+  test("does not translate sections or fetch them when translateSections is not passed", async () => {
+    axiosMock
+      .onGet("/api/courses/7/sections")
+      .reply(200, sectionsFixtures.threeSections);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DroppedStudentsTable
+          students={rosterStudentFixtures.threeStudents}
+          courseId={7}
+        />
+      </QueryClientProvider>,
+    );
+
+    await flushQueries();
+    expect(
+      screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+    ).toHaveTextContent("0100");
+    expect(
+      axiosMock.history.get.some((r) => r.url === "/api/courses/7/sections"),
+    ).toBe(false);
   });
 });
