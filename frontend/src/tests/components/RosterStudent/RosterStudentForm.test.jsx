@@ -235,4 +235,19 @@ describe("RosterStudentForm tests", () => {
       screen.getByTestId(`${testId}-SectionTranslator-translation`),
     ).toHaveValue("Tue 10:00am");
   });
+
+  test("does not render SectionTranslator when translateSections is not passed", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <RosterStudentForm courseId={7} />
+        </Router>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText(/Create/)).toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`${testId}-SectionTranslator-select`),
+    ).not.toBeInTheDocument();
+  });
 });
