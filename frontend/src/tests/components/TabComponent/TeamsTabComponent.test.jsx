@@ -1051,6 +1051,66 @@ describe("TeamTabComponent tests", () => {
       ).not.toBeInTheDocument(),
     );
   });
+  describe("CSV upload rows without a team", () => {
+    const uploadCsv = async (responseBody) => {
+      const file = new File(["there"], "teams.csv", { type: "text/csv" });
+      axiosMock
+        .onGet("/api/teams/all?courseId=1")
+        .reply(200, teamsFixtures.teams);
+      axiosMock.onPost("/api/teams/upload/csv").reply(409, responseBody);
+
+      const user = userEvent.setup();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <TeamsTabComponent
+            courseId={1}
+            testIdPrefix={testId}
+            currentUser={currentUserFixtures.instructorUser}
+          />
+        </QueryClientProvider>,
+      );
+      fireEvent.click(await screen.findByTestId(`${testId}-csv-button`));
+      const upload = await screen.findByTestId("TeamsCSVUploadForm-upload");
+      await user.upload(upload, file);
+      fireEvent.click(screen.getByTestId("TeamsCSVUploadForm-submit"));
+      return await screen.findByTestId(
+        `${testId}-partial-success-post-csv-team-modal`,
+      );
+    };
+
+    test("lists the emails that did not have a team, and still reports the others", async () => {
+      const modal = await uploadCsv({
+        created: 3,
+        existing: 1,
+        rejected: [],
+        noTeam: ["noteam@ucsb.edu", "other@ucsb.edu"],
+      });
+      expect(modal).toHaveTextContent(
+        "Existing Students: 1, New Students: 3. The following emails did not have a team: noteam@ucsb.edu, other@ucsb.edu",
+      );
+    });
+
+    test("does not mention teams when every row had one", async () => {
+      const modal = await uploadCsv({
+        created: 3,
+        existing: 1,
+        rejected: ["user@ucsb.edu"],
+        noTeam: [],
+      });
+      expect(modal).toHaveTextContent(/New Students: 3$/);
+      expect(modal).not.toHaveTextContent("did not have a team");
+    });
+
+    test("does not mention teams when the response has no noTeam list", async () => {
+      const modal = await uploadCsv({
+        created: 3,
+        existing: 1,
+        rejected: ["user@ucsb.edu"],
+      });
+      expect(modal).toHaveTextContent(/New Students: 3$/);
+      expect(modal).not.toHaveTextContent("did not have a team");
+    });
+  });
   describe("Search filter works correctly", () => {
     const testId = "InstructorCourseShowPage";
     beforeEach(() => {

@@ -10,6 +10,7 @@ import edu.ucsb.cs156.frontiers.enums.RosterStatus;
 import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
 import edu.ucsb.cs156.frontiers.jobs.CreateTeamsFromCATMEJob;
 import edu.ucsb.cs156.frontiers.models.CATMEAuditResult;
+import edu.ucsb.cs156.frontiers.models.CATMEStudentAdd;
 import edu.ucsb.cs156.frontiers.models.CATMEStudentDrop;
 import edu.ucsb.cs156.frontiers.models.CATMEStudentUpdate;
 import edu.ucsb.cs156.frontiers.models.CATMETeamAssignment;
@@ -67,6 +68,8 @@ public class CATMEController extends ApiController {
 
   public static final String CATME_AUDIT_HEADER_LINE_1 = "Activity,Class,Term,Format,Instr,School";
   public static final String CATME_AUDIT_HEADER_LINE_4 =
+      "\"Name\",\"Student ID\",\"Email\",\"Section\",";
+  public static final String CATME_TEAM_HEADER_LINE_4 =
       "\"Name\",\"Student ID\",\"Email\",\"Section\",\"Team Name\",";
   public static final String CATME_AUDIT_SCORES_LINE_PREFIX = "\"Scores";
   public static final String CATME_AUDIT_FORMAT_ERROR_MESSAGE =
@@ -76,7 +79,7 @@ public class CATMEController extends ApiController {
    * Audit the roster for a course against a CATME TeamMaker CSV export, producing a list of
    * students whose name and/or section should be updated in CATME, and a list of students who
    * should be dropped from CATME because they are no longer enrolled (MANUAL or ROSTER status) in
-   * Frontiers.
+   * Frontiers, and enrolled students who need to be added to CATME.
    *
    * @param courseId the id of the course
    * @param file the uploaded CATME TeamMaker CSV file
@@ -99,7 +102,7 @@ public class CATMEController extends ApiController {
       lines = reader.lines().collect(Collectors.toList());
     }
 
-    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines);
+    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines, false);
     if (csvRows == null) {
       return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
           .body(genericMessage(CATME_AUDIT_FORMAT_ERROR_MESSAGE));
@@ -143,14 +146,16 @@ public class CATMEController extends ApiController {
       lines = reader.lines().collect(Collectors.toList());
     }
 
-    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines);
+    List<CATMEStudentRow> csvRows = parseCatmeAuditCSV(lines, true);
     if (csvRows == null) {
       return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
           .body(genericMessage(CATME_AUDIT_FORMAT_ERROR_MESSAGE));
     }
 
     CATMEAuditResult auditResult = audit(courseId, csvRows);
-    if (!auditResult.studentsToUpdate().isEmpty() || !auditResult.studentsToDrop().isEmpty()) {
+    if (!auditResult.studentsToUpdate().isEmpty()
+        || !auditResult.studentsToDrop().isEmpty()
+        || !auditResult.studentsToAdd().isEmpty()) {
       return ResponseEntity.ok(auditResult);
     }
 
@@ -176,7 +181,7 @@ public class CATMEController extends ApiController {
    *
    * @param courseId the id of the course
    * @param csvRows the rows of the file
-   * @return the students to update in CATME, and the students to drop from CATME
+   * @return the students to add to, update in, and drop from CATME
    */
   private CATMEAuditResult audit(Long courseId, List<CATMEStudentRow> csvRows) {
     List<RosterStudent> enrolledStudents =
@@ -249,7 +254,21 @@ public class CATMEController extends ApiController {
       }
     }
 
-    return new CATMEAuditResult(studentsToUpdate, studentsToDrop);
+    List<CATMEStudentAdd> studentsToAdd =
+        enrolledStudentsByStudentId.values().stream()
+            .filter(student -> !csvRowsByStudentId.containsKey(student.getStudentId()))
+            .map(
+                student -> {
+                  String section = student.getSection() == null ? "" : student.getSection();
+                  return new CATMEStudentAdd(
+                      student.getStudentId(),
+                      formatStudentName(student.getLastName(), student.getFirstName()),
+                      student.getEmail(),
+                      sectionToLabel.getOrDefault(section, section));
+                })
+            .toList();
+
+    return new CATMEAuditResult(studentsToUpdate, studentsToDrop, studentsToAdd);
   }
 
   /**
@@ -269,9 +288,11 @@ public class CATMEController extends ApiController {
    * Parses the lines of an uploaded CATME TeamMaker CSV file, validating the expected format.
    *
    * @param lines the lines of the file
+   * @param requireTeamNames whether the export must include a Team Name column for team creation
    * @return the list of parsed student rows, or null if the file is not in the expected format
    */
-  private static List<CATMEStudentRow> parseCatmeAuditCSV(List<String> lines) {
+  private static List<CATMEStudentRow> parseCatmeAuditCSV(
+      List<String> lines, boolean requireTeamNames) {
     if (lines.size() < 4) {
       return null;
     }
@@ -282,7 +303,9 @@ public class CATMEController extends ApiController {
     if (!lines.get(2).trim().isEmpty()) {
       return null;
     }
-    if (!lines.get(3).trim().startsWith(CATME_AUDIT_HEADER_LINE_4)) {
+    String header = lines.get(3).trim();
+    boolean hasTeamNames = header.startsWith(CATME_TEAM_HEADER_LINE_4);
+    if (!header.startsWith(CATME_AUDIT_HEADER_LINE_4) || (requireTeamNames && !hasTeamNames)) {
       return null;
     }
 
@@ -301,7 +324,9 @@ public class CATMEController extends ApiController {
         if (fields.length < 4) {
           return null;
         }
-        String teamName = fields.length > 4 ? fields[4] : "";
+        // Survey exports may have Platform (rather than Team Name) in the fifth column.
+        // Only team creation consumes teamName, and it requires the Team Name header above.
+        String teamName = requireTeamNames && fields.length > 4 ? fields[4] : "";
         rows.add(new CATMEStudentRow(fields[0], fields[1], fields[2], fields[3], teamName));
       } catch (IOException e) {
         return null;
