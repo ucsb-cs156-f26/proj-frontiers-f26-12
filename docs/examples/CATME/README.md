@@ -47,3 +47,36 @@ Compared with the eGrades roster and the teams CSV, the mismatches file has:
   `FENNIMORE, ROSALIND IVY`, `MOONSHADOW, PERPETUA`, `WREXHAMPTON, EZEKIEL`
 
 Names, student IDs, emails and sections match for every student who appears in both files.
+
+## Testing the CATME roster audit
+
+1. Sign in as an instructor and create a disposable course. On its Students tab,
+   upload `CMPSC123-Fall-2026-Fake-Egrades.csv` using the UCSB eGrades format.
+   Confirm that the course has 24 enrolled students.
+2. On the course's Settings tab, enable CATME and leave Translate Sections disabled.
+   Open the CATME tab. The roster download and the **Audit CATME Teammaker CSV
+   Download** card should both be visible.
+3. Click **Audit CSV** without selecting a file. Expect an instruction to choose
+   a file, with no results displayed.
+4. Upload `FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-matches.csv` in the
+   audit card and click **Audit CSV**. Expect a green result with zero additions,
+   updates, and removals.
+5. Select `FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-mismatches.csv`.
+   The previous result should clear. Audit it and expect three students to add,
+   zero fields to update, and three students to remove, with the names listed
+   above. This audit compares roster membership, names, and sections; it does
+   not compare team assignments.
+6. Make a copy of the matching export. In its first student row, change
+   `"OKONKWO-LARK, NIA"` to `"OLD-NAME, NIA"` and section `"71530"` to `"99999"`.
+   Audit the copy. Expect zero additions, two fields to update, and zero
+   removals. The updates table should identify the current CATME values and
+   the correct Frontiers values (`OKONKWO-LARK, NIA` and `71530`).
+7. Select the eGrades CSV in the audit card and submit it. Expect an unrecognized
+   CATME format error, no stale result, and an enabled button so another file
+   can be tried. Upload the matching CATME export again and confirm it succeeds.
+8. Return to the Students and Teams tabs. Auditing must not have changed the
+   roster or created any teams.
+
+The audit accepts both the survey export provided here and exports with a
+`Team Name` column immediately after `Section`. Creating teams from the
+`Rater Practice` section of these sample files is a separate team-import task.

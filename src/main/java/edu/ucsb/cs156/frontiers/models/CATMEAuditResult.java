@@ -9,6 +9,9 @@ import java.util.List;
  *     Frontiers
  * @param studentsToDrop students who are in the uploaded CATME CSV file, but are not currently
  *     enrolled (MANUAL or ROSTER status) in Frontiers
+ * @param studentsToAdd enrolled Frontiers students with a student id who are missing from CATME
  */
 public record CATMEAuditResult(
-    List<CATMEStudentUpdate> studentsToUpdate, List<CATMEStudentDrop> studentsToDrop) {}
+    List<CATMEStudentUpdate> studentsToUpdate,
+    List<CATMEStudentDrop> studentsToDrop,
+    List<CATMEStudentAdd> studentsToAdd) {}
