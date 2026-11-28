@@ -8,7 +8,7 @@ import { FaMicrosoft } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import SignInCard from "main/components/Auth/SignInCard";
 
-export default function OnboardingSelectSchoolComponent() {
+export default function OnboardingSelectSchoolComponent({ onSignIn }) {
   const [selectedProvider, setSelectedProvider] = useState(null);
   const { data: systemInfo } = useSystemInfo();
 
@@ -41,6 +41,13 @@ export default function OnboardingSelectSchoolComponent() {
     sessionStorage.setItem("redirect", "/onboarding");
   };
 
+  // When a parent supplies onSignIn (for example the instructor preview), the
+  // sign in card becomes a plain button that calls it, so no real OAuth starts.
+  const handleSignIn = onSignIn
+    ? () => onSignIn(selectedProvider)
+    : setRedirect;
+  const signInUrl = (url) => (onSignIn ? undefined : url);
+
   const renderProviderSignIn = () => {
     switch (selectedProvider) {
       case "microsoft": {
@@ -56,9 +63,9 @@ export default function OnboardingSelectSchoolComponent() {
                     Microsoft.
                   </>
                 }
-                url={systemInfo.activeDirectoryUrl}
+                url={signInUrl(systemInfo.activeDirectoryUrl)}
                 testid={"microsoft"}
-                onClick={setRedirect}
+                onClick={handleSignIn}
               />
             ) : (
               notSetUp()
@@ -79,9 +86,9 @@ export default function OnboardingSelectSchoolComponent() {
                     Google.
                   </>
                 }
-                url={systemInfo.oauthLogin}
+                url={signInUrl(systemInfo.oauthLogin)}
                 testid={"google"}
-                onClick={setRedirect}
+                onClick={handleSignIn}
               />
             ) : (
               notSetUp()
