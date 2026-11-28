@@ -80,6 +80,34 @@ describe("DownloadsTabComponent tests", () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       "Frontend form submit action captured for course: 1",
     );
+    expect(fireEvent.submit(submitButton.closest("form"))).toBe(false);
     consoleSpy.mockRestore();
+  });
+
+  test("Download Teams CSV button opens the teams csv", async () => {
+    const download = vi.fn();
+    window.open = (a, b) => download(a, b);
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <DownloadsTabComponent
+          courseId={coursesFixtures.severalCourses[0].id}
+          testIdPrefix="InstructorCourseShowPage"
+        />
+      </QueryClientProvider>,
+    );
+
+    const teamsButton = await screen.findByTestId(
+      "InstructorCourseShowPage-btn-download-teams-csv",
+    );
+    expect(teamsButton).toHaveClass("ms-2");
+    fireEvent.click(screen.getByText("Download Teams CSV"));
+
+    await waitFor(() => expect(download).toBeCalled());
+    expect(download).toBeCalledWith(
+      "/api/csv/nameandteam?courseId=1",
+      "_blank",
+    );
+    expect(mockToast).not.toHaveBeenCalled();
   });
 });
