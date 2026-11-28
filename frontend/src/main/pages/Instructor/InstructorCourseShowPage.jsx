@@ -3,7 +3,7 @@ import { useBackend } from "main/utils/useBackend";
 
 import BasicLayout from "main/layouts/BasicLayout/BasicLayout";
 import { useCurrentUser } from "main/utils/currentUser";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import Modal from "react-bootstrap/Modal";
 import { Button, Tab, Tabs, OverlayTrigger, Tooltip } from "react-bootstrap";
@@ -16,6 +16,7 @@ import TeamsTabComponent from "main/components/TabComponent/TeamsTabComponent";
 import { CourseWarningBanner } from "main/components/Courses/CourseWarningBanner";
 import SettingsTabComponent from "main/components/TabComponent/SettingsTabComponent";
 import JobTabComponent from "main/components/TabComponent/JobTabComponent";
+import EmailTabComponent from "main/components/TabComponent/EmailTabComponent";
 import { hasRole } from "main/utils/currentUser";
 import DownloadsTabComponent from "main/components/TabComponent/DownloadsTabComponent";
 import SectionsTabComponent from "main/components/TabComponent/SectionsTabComponent";
@@ -24,6 +25,7 @@ import SlackTabComponent from "main/components/TabComponent/SlackTabComponent";
 import DokkuTabComponent from "main/components/TabComponent/DokkuTabComponent";
 import ApiKeysTabComponent from "main/components/TabComponent/ApiKeysTabComponent";
 import EduDoraTabComponent from "main/components/TabComponent/EduDoraTabComponent";
+import CATMETabComponent from "main/components/TabComponent/CATMETabComponent";
 import { slackInfoQueryKey } from "main/utils/slackUtils";
 import {
   COURSE_TABS,
@@ -66,6 +68,10 @@ export default function InstructorCourseShowPage({
     ? allCourseOptions
     : { NEW_ASSIGNMENT_FEATURES: allCourseOptions.NEW_ASSIGNMENT_FEATURES };
 
+  // Section values are translated in the student tables whenever the
+  // TRANSLATE_SECTIONS course option is enabled, for staff as well
+  const translateSections = allCourseOptions.TRANSLATE_SECTIONS === true;
+
   // The Sections tab is only shown when the TRANSLATE_SECTIONS course option
   // is enabled.
   const showSectionsTab = courseOptions.TRANSLATE_SECTIONS === true;
@@ -84,6 +90,8 @@ export default function InstructorCourseShowPage({
   // The EduDora tab is only shown when the ENABLE_EDUDORA course option is
   // enabled.
   const showEduDoraTab = courseOptions.ENABLE_EDUDORA === true;
+
+  const showCATMETab = courseOptions.ENABLE_CATME === true;
 
   // The Slack tab is only shown when the SLACK_INTEGRATION course option is
   // enabled and a Slack token has been saved. The query key is shared with the
@@ -112,6 +120,7 @@ export default function InstructorCourseShowPage({
       (tab !== "slack" || showSlackTab) &&
       (tab !== "api-keys" || showApiKeysTab) &&
       (tab !== "edudora" || showEduDoraTab) &&
+      (tab !== "catme" || showCATMETab) &&
       (tab !== "settings" || showSettingsTab),
   );
   const activeTab = chooseCourseTab({
@@ -232,6 +241,16 @@ export default function InstructorCourseShowPage({
                 </div>
               )}
             </div>
+            <Button
+              as={Link}
+              to={`/onboarding/preview/${courseId}`}
+              variant="outline-primary"
+              size="sm"
+              className="ms-auto"
+              data-testid={`${testId}-onboarding-preview-link`}
+            >
+              View onboarding as student
+            </Button>
           </div>
         </div>
       )}
@@ -245,7 +264,7 @@ export default function InstructorCourseShowPage({
             testIdPrefix={testId}
             currentUser={currentUser}
             canEditStudents={canEditStudents}
-            translateSections={showSectionsTab}
+            translateSections={translateSections}
             canvasEnabled={courseOptions.ENABLE_CANVAS === true}
           />
         </Tab>
@@ -290,6 +309,14 @@ export default function InstructorCourseShowPage({
             />
           </Tab>
         )}
+        <Tab
+          eventKey={"emails"}
+          title={"Emails"}
+          className="pt-2"
+          unmountOnExit={true}
+        >
+          <EmailTabComponent courseId={courseId} testIdPrefix={testId} />
+        </Tab>
         <Tab eventKey={"jobs"} title={"Jobs"} className="pt-2">
           <JobTabComponent courseId={courseId} testIdPrefix={testId} />
         </Tab>
@@ -325,6 +352,11 @@ export default function InstructorCourseShowPage({
         {showEduDoraTab && (
           <Tab eventKey={"edudora"} title={"EduDora"} className="pt-2">
             <EduDoraTabComponent testIdPrefix={testId} />
+          </Tab>
+        )}
+        {showCATMETab && (
+          <Tab eventKey={"catme"} title={"CATME"} className="pt-2">
+            <CATMETabComponent courseId={courseId} testIdPrefix={testId} />
           </Tab>
         )}
         {showSettingsTab && (
