@@ -1,4 +1,4 @@
-import { Button, Form } from "react-bootstrap";
+import { Alert, Button, Form } from "react-bootstrap";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import regexUtils from "main/utils/regexUtils";
@@ -8,6 +8,8 @@ function CourseStaffForm({
   submitAction,
   buttonLabel = "Create",
   cancelDisabled = false,
+  errorMessage = "",
+  isSubmitting = false,
 }) {
   // Stryker disable all
   const {
@@ -23,6 +25,7 @@ function CourseStaffForm({
 
   return (
     <Form onSubmit={handleSubmit(submitAction)}>
+      {errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
       <Form.Group className="mb-3">
         <Form.Label htmlFor="firstName">First Name</Form.Label>
         <Form.Control
@@ -91,7 +94,11 @@ function CourseStaffForm({
         </Form.Group>
       )}
 
-      <Button type="submit" data-testid={testIdPrefix + "-submit"}>
+      <Button
+        type="submit"
+        data-testid={testIdPrefix + "-submit"}
+        disabled={isSubmitting}
+      >
         {buttonLabel}
       </Button>
       {!cancelDisabled && (
