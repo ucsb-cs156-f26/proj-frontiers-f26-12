@@ -9,8 +9,10 @@ import edu.ucsb.cs156.jobs.services.JobContextConsumer;
 import java.util.List;
 import java.util.Optional;
 import lombok.Builder;
+import lombok.Getter;
 
 @Builder
+@Getter
 public class DeleteRepoJob implements JobContextConsumer {
   Long courseId;
   String prefix;

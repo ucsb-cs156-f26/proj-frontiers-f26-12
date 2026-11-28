@@ -2,7 +2,7 @@ import { Button, Row, Col } from "react-bootstrap";
 import SignInCard from "main/components/Auth/SignInCard";
 import { FaGithubSquare } from "react-icons/fa";
 
-export default function OnboardingGithubSignInComponent() {
+export default function OnboardingGithubSignInComponent({ onSignIn }) {
   const githubIcon = () => {
     return (
       <span data-testid={"OnboardingGithubSignInComponent-githubIcon"}>
@@ -41,9 +41,9 @@ export default function OnboardingGithubSignInComponent() {
           description={
             "Please connect your account with a GitHub account to continue to Frontiers."
           }
-          url={githubOauthLogin}
+          url={onSignIn ? undefined : githubOauthLogin}
           testid={"github"}
-          onClick={setRedirect}
+          onClick={onSignIn ?? setRedirect}
         />
       </Row>
       <Row className="align-items-center justify-content-center py-3">

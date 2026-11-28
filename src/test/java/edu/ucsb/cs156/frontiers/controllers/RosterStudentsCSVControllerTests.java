@@ -28,9 +28,11 @@ import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.services.JobService;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,6 +61,8 @@ public class RosterStudentsCSVControllerTests extends ControllerTestCase {
   @MockitoBean private UpdateUserService updateUserService;
 
   @MockitoBean private OrganizationMemberService organizationMemberService;
+
+  @MockitoBean private StudentDropService studentDropService;
 
   @MockitoBean private JobService service;
 
@@ -292,6 +296,7 @@ public class RosterStudentsCSVControllerTests extends ControllerTestCase {
             .build();
 
     verify(rosterStudentRepository, never()).saveAll(List.of());
+    verify(studentDropService, never()).handleStudentsDropped(any());
     String responseString = response.getResponse().getContentAsString();
     LoadResult expectedResult = new LoadResult(0, 0, 0, List.of(rosterStudentRejected));
     String expectedJson = mapper.writeValueAsString(expectedResult);
@@ -353,6 +358,12 @@ public class RosterStudentsCSVControllerTests extends ControllerTestCase {
 
     verify(rosterStudentRepository, times(1)).saveAll(rosterStudentCaptor.capture());
     verify(jobService, times(1)).runAsJob(any(RemoveStudentsJob.class));
+
+    ArgumentCaptor<Collection<RosterStudent>> droppedCaptor =
+        ArgumentCaptor.forClass(Collection.class);
+    verify(studentDropService, times(1)).handleStudentsDropped(droppedCaptor.capture());
+    assertEquals(1, droppedCaptor.getValue().size());
+    assertTrue(droppedCaptor.getValue().contains(droppedStudent));
 
     System.out.println("rosterStudentCaptor.getValue() = " + rosterStudentCaptor.getValue());
     assertTrue(rosterStudentCaptor.getValue().contains(droppedStudentUpdated));
