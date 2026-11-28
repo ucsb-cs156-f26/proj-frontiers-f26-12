@@ -11,6 +11,7 @@ import { expect, vi } from "vitest";
 
 const queryClient = new QueryClient();
 const axiosMock = new AxiosMockAdapter(axios);
+const flushQueries = () => new Promise((resolve) => setTimeout(resolve, 100));
 const mockToast = vi.fn();
 vi.mock("react-toastify", async (importOriginal) => {
   return {
@@ -348,7 +349,7 @@ describe("RosterStudentTable tests", () => {
     const pageSizeSelect = screen.getByTestId(`${testId}-pageSizeSelect`);
     expect(pageSizeSelect).toHaveValue("100");
     expect(pageSizeSelect).toHaveAttribute("id", `${testId}-pageSizeSelect`);
-    expect(pageSizeSelect).toHaveStyle({ width: "auto" });
+    expect(pageSizeSelect.style.width).toBe("auto");
     expect(screen.getByLabelText("Page Size:")).toBe(pageSizeSelect);
     expect(
       screen.queryByTestId(`${testId}-pagination-prev`),
@@ -627,6 +628,69 @@ describe("RosterStudentTable tests", () => {
         screen.getByTestId(`${testId}-cell-row-0-col-section`),
       ).toHaveTextContent("0100"),
     );
+  });
+
+  test("does not translate sections or fetch them when translateSections is not passed", async () => {
+    axiosMock.resetHistory();
+    axiosMock
+      .onGet("/api/courses/7/sections")
+      .reply(200, sectionsFixtures.threeSections);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <RosterStudentTable
+            students={rosterStudentFixtures.threeStudents}
+            currentUser={currentUserFixtures.adminUser}
+            courseId={7}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await flushQueries();
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-section`),
+    ).toHaveTextContent("0100");
+    expect(
+      axiosMock.history.get.some((r) => r.url === "/api/courses/7/sections"),
+    ).toBe(false);
+  });
+
+  test("changing the page size goes back to the first page", () => {
+    const manyStudents = Array.from({ length: 30 }, (_, index) => ({
+      id: index + 1,
+      studentId: `S${index + 1}`,
+      firstName: `First${index + 1}`,
+      lastName: `Last${index + 1}`,
+      email: `student${index + 1}@ucsb.edu`,
+    }));
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <RosterStudentTable
+            students={manyStudents}
+            currentUser={currentUserFixtures.adminUser}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const pageSizeSelect = screen.getByTestId(`${testId}-pageSizeSelect`);
+    expect(pageSizeSelect.style.width).toBe("auto");
+
+    fireEvent.change(pageSizeSelect, { target: { value: "10" } });
+    fireEvent.click(screen.getByTestId(`${testId}-pagination-next`));
+    fireEvent.click(screen.getByTestId(`${testId}-pagination-next`));
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-studentId`),
+    ).toHaveTextContent("S21");
+
+    fireEvent.change(pageSizeSelect, { target: { value: "25" } });
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-studentId`),
+    ).toHaveTextContent("S1");
   });
 });
 test("tooltips for Team column name", async () => {
