@@ -1,21 +1,11 @@
 import BasicLayout from "main/layouts/BasicLayout/BasicLayout";
-import { ProgressBar, Row, Col, Button } from "react-bootstrap";
-import { Link } from "react-router";
+import { ProgressBar, Row } from "react-bootstrap";
+import OnboardingCompleteComponent from "main/components/Onboarding/OnboardingCompleteComponent";
 
 export default function OnboardingSuccessPage() {
   return (
     <BasicLayout enableBootstrap={true}>
-      <Row>
-        <h1>Complete!</h1>
-        <p>Congratulations on completing the onboarding process!</p>
-      </Row>
-      <Row className="">
-        <Col xs="auto" className="text-center">
-          <Button as={Link} to="/">
-            Click here to return home
-          </Button>
-        </Col>
-      </Row>
+      <OnboardingCompleteComponent />
       <Row className="mt-auto pb-3">
         <ProgressBar now={100} />
       </Row>
