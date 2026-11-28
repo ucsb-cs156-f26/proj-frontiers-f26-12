@@ -43,9 +43,11 @@ export default function TeamsTable({
   // when there is a staff team to show.
   const hasStaffTeam = teams.some((team) => team.isStaffTeam);
   const { data: courseStaff } = useBackend(
+    // Stryker disable next-line all : the query key only affects caching
     [`/api/coursestaff/course?courseId=${courseId}`],
     // Stryker disable next-line all : GET and empty string are equivalent
     { method: "GET", url: `/api/coursestaff/course?courseId=${courseId}` },
+    // Stryker disable next-line ArrayDeclaration : the initial list is only used until the staff list loads
     [],
     true,
     { enabled: instructorView && hasStaffTeam },
