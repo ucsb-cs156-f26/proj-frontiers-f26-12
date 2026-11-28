@@ -14,6 +14,7 @@ import edu.ucsb.cs156.frontiers.models.UpsertResponse;
 import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.services.JobService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +54,7 @@ public class RosterStudentsCSVController extends ApiController {
   @Autowired private UpdateUserService updateUserService;
   @Autowired private OrganizationMemberService organizationMemberService;
   @Autowired private JobService jobService;
+  @Autowired private StudentDropService studentDropService;
 
   public enum RosterSourceType {
     UCSB_EGRADES,
@@ -166,6 +168,7 @@ public class RosterStudentsCSVController extends ApiController {
           course.getRosterStudents().stream()
               .filter(student -> student.getRosterStatus() == RosterStatus.DROPPED)
               .toList();
+      studentDropService.handleStudentsDropped(droppedStudents);
       LoadResult successfulResult =
           new LoadResult(
               counts[InsertStatus.INSERTED.ordinal()],
