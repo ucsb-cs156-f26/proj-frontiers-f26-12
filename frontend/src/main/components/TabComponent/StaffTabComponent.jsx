@@ -2,6 +2,7 @@ import { toast } from "react-toastify";
 import { useBackend, useBackendMutation } from "main/utils/useBackend";
 import React, { useState } from "react";
 import {
+  Alert,
   Button,
   Col,
   Form,
@@ -14,6 +15,7 @@ import {
 import { BsInfoCircle } from "react-icons/bs";
 import CourseStaffForm from "main/components/CourseStaff/CourseStaffForm";
 import CourseStaffCSVUploadForm from "main/components/CourseStaff/CourseStaffCSVUploadForm";
+import CourseStaffCSVUploadResult from "main/components/CourseStaff/CourseStaffCSVUploadResult";
 import CourseStaffTable from "main/components/CourseStaff/CourseStaffTable";
 import Modal from "react-bootstrap/Modal";
 import CourseEmailsCard from "main/components/Emails/CourseEmailsCard";
@@ -27,6 +29,8 @@ export default function StaffTabComponent({
 }) {
   const [postModal, showPostModal] = useState(false);
   const [csvModal, setCsvModal] = useState(false);
+  const [csvResult, setCsvResult] = useState(null);
+  const [csvError, setCsvError] = useState(null);
   const { data: courseStaff } = useBackend(
     [`/api/coursestaff/course?courseId=${courseId}`],
     // Stryker disable next-line StringLiteral : GET and empty string are equivalent
@@ -79,12 +83,16 @@ export default function StaffTabComponent({
   const staffCsvMutation = useBackendMutation(
     objectToAxiosParamsCSV,
     {
-      onSuccess: () => onSuccessStaff(setCsvModal),
-      onError: (error) => {
-        toast.error(
-          `Error uploading CSV: ${JSON.stringify(error.response.data, null, 2)}`,
-        );
+      onSuccess: (result) => {
+        setCsvResult(result);
+        setSearchTerm("");
         setCsvModal(false);
+      },
+      onError: (error) => {
+        setCsvError(
+          error.response?.data?.message ??
+            "Upload could not be completed. Check the staff roster before retrying; some rows may have been saved.",
+        );
       },
     },
     [
@@ -98,6 +106,8 @@ export default function StaffTabComponent({
   };
 
   const handleCsvSubmit = (formData) => {
+    setCsvError(null);
+    setCsvResult(null);
     staffCsvMutation.mutate(formData);
   };
 
@@ -133,7 +143,11 @@ export default function StaffTabComponent({
       >
         <ModalHeader closeButton>Upload Staff CSV</ModalHeader>
         <ModalBody>
-          <CourseStaffCSVUploadForm submitAction={handleCsvSubmit} />
+          {csvError && <Alert variant="danger">{csvError}</Alert>}
+          <CourseStaffCSVUploadForm
+            submitAction={handleCsvSubmit}
+            isPending={staffCsvMutation.isPending}
+          />
         </ModalBody>
       </Modal>
       {isInstructor && (
@@ -141,7 +155,10 @@ export default function StaffTabComponent({
           <Col>
             <div className="d-flex align-items-center position-relative">
               <Button
-                onClick={() => setCsvModal(true)}
+                onClick={() => {
+                  setCsvError(null);
+                  setCsvModal(true);
+                }}
                 data-testid={`${testIdPrefix}-csv-button`}
                 className="w-100 pe-5"
               >
@@ -217,6 +234,7 @@ export default function StaffTabComponent({
           </Col>
         </Row>
       )}
+      {csvResult && <CourseStaffCSVUploadResult result={csvResult} />}
       <Row className="mb-1">
         <Form>
           <Form.Group as={Row} controlId="searchFilter">
