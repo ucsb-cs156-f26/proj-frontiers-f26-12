@@ -9,7 +9,10 @@ import java.util.List;
  *     Frontiers
  * @param studentsToDrop students who are in the uploaded CATME CSV file, but are not currently
  *     enrolled (MANUAL or ROSTER status) in Frontiers
+ * @param studentsToAdd enrolled Frontiers students with a student id who are missing from CATME
  */
-<span class="fc" id="L13">public record CATMEAuditResult(</span>
-    List&lt;CATMEStudentUpdate&gt; studentsToUpdate, List&lt;CATMEStudentDrop&gt; studentsToDrop) {}
+<span class="fc" id="L14">public record CATMEAuditResult(</span>
+    List&lt;CATMEStudentUpdate&gt; studentsToUpdate,
+    List&lt;CATMEStudentDrop&gt; studentsToDrop,
+    List&lt;CATMEStudentAdd&gt; studentsToAdd) {}
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
