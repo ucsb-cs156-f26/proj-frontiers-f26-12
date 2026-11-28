@@ -8,6 +8,7 @@ function RepositorySelectionForm({ collections = [] }) {
 
   const handleBlurURL = (e) => {
     const inputValue = e.target.value;
+    // Stryker disable next-line CallExpression : the controlled input's onChange has already set url to this value
     setURL(inputValue);
 
     const inputValueTrimmed = inputValue.trim();
@@ -62,6 +63,7 @@ function RepositorySelectionForm({ collections = [] }) {
     const inputValue = e.target.value;
 
     const inputValueTrimmed = inputValue.trim();
+    // Stryker disable next-line CallExpression : the controlled input's onChange has already set name to this value
     setName(inputValue);
     if (inputValueTrimmed.length < 1) {
       setMessageName(
