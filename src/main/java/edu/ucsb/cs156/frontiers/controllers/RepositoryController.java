@@ -7,15 +7,19 @@ import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
 import edu.ucsb.cs156.frontiers.errors.NoLinkedOrganizationException;
 import edu.ucsb.cs156.frontiers.jobs.CreateStudentOrStaffRepositoriesJob;
 import edu.ucsb.cs156.frontiers.jobs.CreateTeamRepositoriesJob;
+import edu.ucsb.cs156.frontiers.jobs.DeleteRepoJob;
 import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
 import edu.ucsb.cs156.frontiers.services.GithubTeamService;
 import edu.ucsb.cs156.frontiers.services.RepositoryService;
 import edu.ucsb.cs156.jobs.entities.Job;
 import edu.ucsb.cs156.jobs.services.JobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -106,6 +110,48 @@ public class RepositoryController extends ApiController {
               .course(course)
               .permissions(permissions)
               .teamRegex(teamRegex.orElse(null))
+              .build();
+      return jobService.runAsJob(job);
+    }
+  }
+
+  /**
+   * Fires a job that deletes all empty repos matching the prefix in the linked GitHub organization.
+   *
+   * @param courseId ID of course to delete repos for
+   * @param prefix each repo matching this prefix will be checked and deleted if empty
+   * @return the {@link edu.ucsb.cs156.jobs.entities.Job Job} started to delete the repos.
+   */
+  @Operation(
+      summary =
+          "Fires a job that deletes all empty repos matching the prefix in the linked GitHub organization")
+  @DeleteMapping("")
+  @PreAuthorize("@CourseSecurity.hasManagePermissions(#root, #courseId)")
+  public Job deleteRepos(
+      @Parameter(name = "courseId", description = "course id", example = "1") @RequestParam
+          Long courseId,
+      @Parameter(
+              name = "prefix",
+              description = "prefix of repo name to match and delete if empty",
+              example = "lab01")
+          @RequestParam
+          String prefix) {
+    if (prefix.isBlank()) {
+      throw new IllegalArgumentException("prefix must not be blank");
+    }
+    Course course =
+        courseRepository
+            .findById(courseId)
+            .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId));
+    if (course.getOrgName() == null || course.getInstallationId() == null) {
+      throw new NoLinkedOrganizationException(course.getCourseName());
+    } else {
+      DeleteRepoJob job =
+          DeleteRepoJob.builder()
+              .courseId(courseId)
+              .prefix(prefix)
+              .courseRepository(courseRepository)
+              .repositoryService(repositoryService)
               .build();
       return jobService.runAsJob(job);
     }
