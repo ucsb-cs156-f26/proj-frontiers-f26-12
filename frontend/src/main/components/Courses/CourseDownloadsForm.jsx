@@ -1,7 +1,11 @@
 import React from "react";
 import { Button, Form } from "react-bootstrap";
 
-export default function CourseDownloadsForm({ downloadAction, testIdPrefix }) {
+export default function CourseDownloadsForm({
+  downloadAction,
+  teamsDownloadAction,
+  testIdPrefix,
+}) {
   const handleSubmit = (event) => {
     event.preventDefault();
     downloadAction();
@@ -24,6 +28,14 @@ export default function CourseDownloadsForm({ downloadAction, testIdPrefix }) {
         data-testid={`${testIdPrefix}-btn-download-students-csv`}
       >
         Download Students CSV
+      </Button>
+      <Button
+        className="ms-2"
+        variant="primary"
+        onClick={teamsDownloadAction}
+        data-testid={`${testIdPrefix}-btn-download-teams-csv`}
+      >
+        Download Teams CSV
       </Button>
     </Form>
   );

@@ -427,4 +427,108 @@ public class TeamCsvServiceTests {
         IllegalArgumentException.class, () -> service.writeTeamTableCsv(writer, List.of(), 0));
     assertEquals("", writer.toString());
   }
+
+  // fillColumns
+
+  @Test
+  public void fillColumns_fills_every_column_but_the_last() {
+    assertEquals(
+        List.of(List.of(1, 2), List.of(3, 4), List.of(5)),
+        service.fillColumns(List.of(1, 2, 3, 4, 5), 2));
+  }
+
+  @Test
+  public void fillColumns_does_not_add_an_empty_column_when_the_items_divide_evenly() {
+    assertEquals(
+        List.of(List.of(1, 2), List.of(3, 4)), service.fillColumns(List.of(1, 2, 3, 4), 2));
+  }
+
+  @Test
+  public void fillColumns_with_no_items_gives_one_empty_column() {
+    assertEquals(List.of(List.of()), service.fillColumns(List.of(), 2));
+  }
+
+  // writeNameAndTeamTablesCsv
+
+  private String nameAndTeamTablesCsv(List<NameAndTeam> entries) throws Exception {
+    StringWriter writer = new StringWriter();
+    service.writeNameAndTeamTablesCsv(writer, entries);
+    return writer.toString().replace("\r\n", "\n");
+  }
+
+  private static List<NameAndTeam> sameTeamEntries(int count) {
+    List<NameAndTeam> entries = new ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      entries.add(nt("N" + i, "t"));
+    }
+    return entries;
+  }
+
+  private static List<NameAndTeam> oneEntryPerTeam(int count) {
+    List<NameAndTeam> entries = new ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      entries.add(nt("N" + i, "t" + i));
+    }
+    return entries;
+  }
+
+  @Test
+  public void writeNameAndTeamTablesCsv_writes_by_name_then_by_team() throws Exception {
+    List<NameAndTeam> entries =
+        List.of(nt("Andy", ""), nt("Binghao", "s26-02"), nt("Chris", "s26-01"));
+    String expected =
+        """
+        by name
+        Name,Team
+        Andy,
+        Binghao,s26-02
+        Chris,s26-01
+        by team
+        Team,Name
+        s26-01,Chris
+        s26-02,Binghao
+        "",Andy
+        """;
+    assertEquals(expected, nameAndTeamTablesCsv(entries));
+  }
+
+  @Test
+  public void writeNameAndTeamTablesCsv_keeps_24_names_in_one_column() throws Exception {
+    String csv = nameAndTeamTablesCsv(sameTeamEntries(24));
+    assertEquals("Name,Team", csv.split("\n")[1]);
+    assertEquals("N23,t", csv.split("\n")[25]);
+    assertEquals("by team", csv.split("\n")[26]);
+  }
+
+  @Test
+  public void writeNameAndTeamTablesCsv_starts_a_second_column_after_24_names() throws Exception {
+    String csv = nameAndTeamTablesCsv(sameTeamEntries(25));
+    assertEquals("Name,Team,,Name,Team", csv.split("\n")[1]);
+    assertEquals("N0,t,,N24,t", csv.split("\n")[2]);
+    assertEquals("N1,t,,,", csv.split("\n")[3]);
+    assertEquals("N23,t,,,", csv.split("\n")[25]);
+    assertEquals("by team", csv.split("\n")[26]);
+  }
+
+  @Test
+  public void writeNameAndTeamTablesCsv_keeps_4_teams_in_one_column() throws Exception {
+    String csv = nameAndTeamTablesCsv(oneEntryPerTeam(4));
+    assertEquals("by team", csv.split("\n")[6]);
+    assertEquals("Team,Name", csv.split("\n")[7]);
+    assertEquals("t3,N3", csv.split("\n")[11]);
+  }
+
+  @Test
+  public void writeNameAndTeamTablesCsv_starts_a_second_column_after_4_teams() throws Exception {
+    String csv = nameAndTeamTablesCsv(oneEntryPerTeam(5));
+    assertEquals("by team", csv.split("\n")[7]);
+    assertEquals("Team,Name,,Team,Name", csv.split("\n")[8]);
+    assertEquals("t0,N0,,t4,N4", csv.split("\n")[9]);
+    assertEquals("t3,N3,,,", csv.split("\n")[12]);
+  }
+
+  @Test
+  public void writeNameAndTeamTablesCsv_with_no_entries_writes_only_the_headers() throws Exception {
+    assertEquals("by name\nName,Team\nby team\nTeam,Name\n", nameAndTeamTablesCsv(List.of()));
+  }
 }
