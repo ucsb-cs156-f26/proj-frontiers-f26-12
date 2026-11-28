@@ -33,8 +33,8 @@ frontiers,edu.ucsb.cs156.frontiers.services,OrganizationMemberService.new TypeRe
 frontiers,edu.ucsb.cs156.frontiers.services,OrganizationMemberService.new TypeReference() {...},0,8,0,0,0,1,0,1,0,1
 frontiers,edu.ucsb.cs156.frontiers.services,SectionTranslationService,0,60,0,6,0,13,0,7,0,4
 frontiers,edu.ucsb.cs156.frontiers.services,GithubGraphQLService,0,268,0,4,0,82,0,8,0,6
-frontiers,edu.ucsb.cs156.frontiers.services,SlackService,0,629,0,38,0,148,0,40,0,21
 frontiers,edu.ucsb.cs156.frontiers.services,SystemInfoService,0,3,0,0,0,1,0,1,0,1
+frontiers,edu.ucsb.cs156.frontiers.services,SlackService,0,629,0,38,0,148,0,40,0,21
 frontiers,edu.ucsb.cs156.frontiers.services,StudentDropService,0,83,0,6,0,24,0,8,0,5
 frontiers,edu.ucsb.cs156.frontiers.services,RepositoryService,0,824,0,42,0,184,0,35,0,14
 frontiers,edu.ucsb.cs156.frontiers.services,ApiKeyService.IssuedCourseApiKey,0,18,0,0,0,1,0,1,0,1
@@ -58,7 +58,7 @@ frontiers,edu.ucsb.cs156.frontiers.controllers,CSRFController,0,5,0,0,0,2,0,2,0,
 frontiers,edu.ucsb.cs156.frontiers.controllers,CATMEController,0,832,0,120,0,190,0,87,0,27
 frontiers,edu.ucsb.cs156.frontiers.controllers,GithubController,0,147,0,10,0,38,0,8,0,3
 frontiers,edu.ucsb.cs156.frontiers.controllers,ApiController,0,98,0,0,0,26,0,13,0,13
-frontiers,edu.ucsb.cs156.frontiers.controllers,TeamsController.TeamCreationResponse,0,15,0,0,0,1,0,1,0,1
+frontiers,edu.ucsb.cs156.frontiers.controllers,TeamsController.TeamCreationResponse,0,26,0,0,0,3,0,2,0,2
 frontiers,edu.ucsb.cs156.frontiers.controllers,AdminsController.AdminDTO,0,18,0,0,0,3,0,2,0,2
 frontiers,edu.ucsb.cs156.frontiers.controllers,TestErrorController,0,8,0,0,0,2,0,2,0,2
 frontiers,edu.ucsb.cs156.frontiers.controllers,RosterStudentsCSVController.RosterSourceType,0,33,0,0,0,6,0,1,0,1
@@ -68,8 +68,8 @@ frontiers,edu.ucsb.cs156.frontiers.controllers,SlackController,0,1010,0,110,0,22
 frontiers,edu.ucsb.cs156.frontiers.controllers,SectionsController,0,251,0,12,0,53,0,19,0,13
 frontiers,edu.ucsb.cs156.frontiers.controllers,CoursesController.EmailTypes,0,21,0,0,0,4,0,1,0,1
 frontiers,edu.ucsb.cs156.frontiers.controllers,UsersController,0,8,0,0,0,2,0,2,0,2
-frontiers,edu.ucsb.cs156.frontiers.controllers,WebhookController,0,436,0,54,0,102,0,30,0,3
 frontiers,edu.ucsb.cs156.frontiers.controllers,CATMEController.CATMEStudentRow,0,18,0,0,0,1,0,1,0,1
+frontiers,edu.ucsb.cs156.frontiers.controllers,WebhookController,0,436,0,54,0,102,0,30,0,3
 frontiers,edu.ucsb.cs156.frontiers.controllers,RosterStudentsController.PurgeDroppedResponse,0,12,0,0,0,1,0,1,0,1
 frontiers,edu.ucsb.cs156.frontiers.controllers,CourseStaffCSVController,0,179,0,14,0,41,0,12,0,5
 frontiers,edu.ucsb.cs156.frontiers.controllers,SlackController.SlackUserView,0,21,0,0,0,1,0,1,0,1
@@ -78,7 +78,7 @@ frontiers,edu.ucsb.cs156.frontiers.controllers,CustomErrorController,0,129,0,14,
 frontiers,edu.ucsb.cs156.frontiers.controllers,StudentInfoController,0,203,0,22,0,50,0,20,0,9
 frontiers,edu.ucsb.cs156.frontiers.controllers,UserInfoController,0,6,0,0,0,2,0,2,0,2
 frontiers,edu.ucsb.cs156.frontiers.controllers,RosterStudentsCSVController,0,540,0,42,0,129,0,37,0,16
-frontiers,edu.ucsb.cs156.frontiers.controllers,TeamsController,0,732,0,44,0,141,0,45,0,23
+frontiers,edu.ucsb.cs156.frontiers.controllers,TeamsController,0,759,0,50,0,147,0,48,0,23
 frontiers,edu.ucsb.cs156.frontiers.controllers,DownloadRequestController,0,183,0,6,0,52,0,9,0,6
 frontiers,edu.ucsb.cs156.frontiers.controllers,CanvasController,0,319,0,12,0,79,0,19,0,13
 frontiers,edu.ucsb.cs156.frontiers.controllers,CourseApiKeyController,0,98,0,6,0,21,0,11,0,8
