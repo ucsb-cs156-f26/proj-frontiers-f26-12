@@ -1,6 +1,7 @@
 package edu.ucsb.cs156.frontiers.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -958,6 +959,73 @@ public class CourseStaffControllerTests extends ControllerTestCase {
     assertEquals(
         "Successfully deleted staff member and removed them from the staff roster.",
         response.getResponse().getContentAsString());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void testDeleteCourseStaff_instructorEmailDoesNotMatch() throws Exception {
+    Course course = Course.builder().id(7L).instructorEmail("prof@ucsb.edu").build();
+
+    CourseStaff staffMember =
+        CourseStaff.builder()
+            .id(1L)
+            .firstName("Test")
+            .lastName("Staff")
+            .email("teststaff@ucsb.edu")
+            .course(course)
+            .orgStatus(OrgStatus.PENDING)
+            .build();
+
+    List<CourseStaff> staffList = new ArrayList<>();
+    staffList.add(staffMember);
+    course.setCourseStaff(staffList);
+
+    when(courseStaffRepository.findById(eq(1L))).thenReturn(Optional.of(staffMember));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                delete("/api/coursestaff/delete")
+                    .with(csrf())
+                    .param("id", "1")
+                    .param("courseId", "7"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(courseStaffRepository).findById(eq(1L));
+    verify(courseStaffRepository).delete(any(CourseStaff.class));
+
+    assertTrue(course.getCourseStaff().isEmpty());
+
+    assertEquals(
+        "Successfully deleted staff member and removed them from the staff roster.",
+        response.getResponse().getContentAsString());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void testDeleteCourseStaff_cannotDeleteInstructor() throws Exception {
+    Course course1 = Course.builder().id(7L).instructorEmail("prof@ucsb.edu").build();
+    CourseStaff instructorStaff =
+        CourseStaff.builder().id(1L).email("prof@ucsb.edu").course(course1).build();
+    when(courseStaffRepository.findById(eq(1L))).thenReturn(Optional.of(instructorStaff));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                delete("/api/coursestaff/delete")
+                    .with(csrf())
+                    .param("id", "1")
+                    .param("courseId", "7"))
+            .andExpect(status().isBadRequest())
+            .andReturn();
+
+    verify(courseStaffRepository, never()).delete(any());
+    assertTrue(
+        response
+            .getResponse()
+            .getContentAsString()
+            .contains("you cannot delete the instructor as a staff member"));
   }
 
   @Test

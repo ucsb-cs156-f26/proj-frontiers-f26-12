@@ -2,6 +2,7 @@ package edu.ucsb.cs156.frontiers.startup;
 
 import edu.ucsb.cs156.frontiers.entities.Admin;
 import edu.ucsb.cs156.frontiers.repositories.AdminRepository;
+import edu.ucsb.cs156.frontiers.services.InstructorStaffService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,8 @@ public class FrontiersStartup {
 
   @Autowired AdminRepository adminRepository;
 
+  @Autowired InstructorStaffService instructorStaffService;
+
   /**
    * Called once at application startup time . Put code here if you want it to run once each time
    * the Spring Boot application starts up in all environments.
@@ -38,6 +41,12 @@ public class FrontiersStartup {
           });
     } catch (Exception e) {
       log.error("Error in loading all ADMIN_EMAILS:", e);
+    }
+
+    try {
+      instructorStaffService.ensureAllInstructorsAreStaff();
+    } catch (Exception e) {
+      log.error("Error adding course instructors as staff:", e);
     }
   }
 
