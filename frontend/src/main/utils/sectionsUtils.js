@@ -31,10 +31,12 @@ export function onSectionMutationError(error) {
  */
 export function useSectionLabels(courseId, enabled) {
   const sectionsQueryKey = `/api/courses/${courseId}/sections`;
+  // Stryker disable next-line ArrayDeclaration : useBackend always gets initialData, so this default is never used
   const { data: sections = [] } = useBackend(
     [sectionsQueryKey],
     // Stryker disable next-line StringLiteral : GET and empty string are equivalent
     { method: "GET", url: sectionsQueryKey },
+    // Stryker disable next-line ArrayDeclaration : an initial entry with no section or label never matches a section, so translation is unchanged
     [],
     true,
     { enabled },

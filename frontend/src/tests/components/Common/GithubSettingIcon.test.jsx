@@ -45,4 +45,13 @@ describe("GithubSettingIcon tests", () => {
       transform: "translate(65%, 20%)",
     });
   });
+
+  test("leaves space to the right of the icon", () => {
+    render(<GithubSettingIcon />);
+    expect(screen.getByTestId("GithubSettingIcon")).toHaveStyle({
+      position: "relative",
+      display: "inline-block",
+      marginRight: "12px",
+    });
+  });
 });
