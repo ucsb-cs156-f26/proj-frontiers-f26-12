@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVReader;
 import edu.ucsb.cs156.frontiers.ControllerTestCase;
 import edu.ucsb.cs156.frontiers.annotations.WithInstructorCoursePermissions;
 import edu.ucsb.cs156.frontiers.entities.Course;
@@ -25,6 +26,7 @@ import edu.ucsb.cs156.frontiers.entities.TeamMember;
 import edu.ucsb.cs156.frontiers.enums.RosterStatus;
 import edu.ucsb.cs156.frontiers.jobs.CreateTeamsFromCATMEJob;
 import edu.ucsb.cs156.frontiers.models.CATMEAuditResult;
+import edu.ucsb.cs156.frontiers.models.CATMEStudentAdd;
 import edu.ucsb.cs156.frontiers.models.CATMEStudentDrop;
 import edu.ucsb.cs156.frontiers.models.CATMEStudentUpdate;
 import edu.ucsb.cs156.frontiers.models.CATMETeamAssignment;
@@ -37,9 +39,12 @@ import edu.ucsb.cs156.frontiers.repositories.TeamRepository;
 import edu.ucsb.cs156.jobs.entities.Job;
 import edu.ucsb.cs156.jobs.services.JobService;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +81,87 @@ public class CATMEControllerTests extends ControllerTestCase {
           + "\n"
           + "\"Name\",\"Student ID\",\"Email\",\"Section\",\"Team Name\",\"Platform\",\"Sex\",\"Java"
           + " Knowledge\",\"React Experience\",\n";
+
+  private static final Path CATME_EXAMPLES = Path.of("docs", "examples", "CATME");
+
+  private static List<RosterStudent> catmeExampleRoster() throws Exception {
+    try (CSVReader reader =
+        new CSVReader(
+            Files.newBufferedReader(
+                CATME_EXAMPLES.resolve("CMPSC123-Fall-2026-Fake-Egrades.csv")))) {
+      reader.readNext(); // eGrades column names
+      reader.readNext(); // blank row
+      return reader.readAll().stream()
+          .map(
+              row ->
+                  RosterStudent.builder()
+                      .studentId(row[1])
+                      .firstName(row[5])
+                      .lastName(row[4])
+                      .email(row[10])
+                      .section(row[0])
+                      .rosterStatus(RosterStatus.ROSTER)
+                      .build())
+          .toList();
+    }
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void catmeAudit_providedMatchingExportHasNoDifferences() throws Exception {
+    when(rosterStudentRepository.findByCourseId(1L)).thenReturn(catmeExampleRoster());
+    String content =
+        Files.readString(
+            CATME_EXAMPLES.resolve("FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-matches.csv"));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/audit")
+                    .file(catmeFile(content))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    CATMEAuditResult result =
+        objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
+    assertEquals(new CATMEAuditResult(List.of(), List.of(), List.of()), result);
+    verify(jobService, never()).runAsJob(any());
+    verifyNoInteractions(teamRepository, teamMemberRepository);
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void catmeAudit_providedMismatchesReportMissingAndExtraStudents() throws Exception {
+    when(rosterStudentRepository.findByCourseId(1L)).thenReturn(catmeExampleRoster());
+    String content =
+        Files.readString(
+            CATME_EXAMPLES.resolve(
+                "FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-mismatches.csv"));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/audit")
+                    .file(catmeFile(content))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    CATMEAuditResult result =
+        objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
+    assertEquals(3, result.studentsToAdd().size());
+    assertEquals(
+        Set.of("FENNIMORE, ROSALIND IVY", "MOONSHADOW, PERPETUA", "WREXHAMPTON, EZEKIEL"),
+        Set.copyOf(result.studentsToAdd().stream().map(CATMEStudentAdd::name).toList()));
+    assertEquals(3, result.studentsToDrop().size());
+    assertEquals(
+        Set.of("PEMBERWICK, GWENDOLYN", "SALTONSTALL, CORNELIUS", "YARBOROUGHE, MARISOL"),
+        Set.copyOf(result.studentsToDrop().stream().map(CATMEStudentDrop::name).toList()));
+    assertEquals(List.of(), result.studentsToUpdate());
+  }
 
   @Test
   @WithInstructorCoursePermissions
@@ -134,6 +220,7 @@ public class CATMEControllerTests extends ControllerTestCase {
         objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
     assertEquals(0, result.studentsToUpdate().size());
     assertEquals(0, result.studentsToDrop().size());
+    assertEquals(List.of(), result.studentsToAdd());
   }
 
   @Test
@@ -807,7 +894,7 @@ public class CATMEControllerTests extends ControllerTestCase {
 
   @Test
   @WithInstructorCoursePermissions
-  public void catmeAudit_rosterStudentNotInCatme_isIgnored() throws Exception {
+  public void catmeAudit_rosterStudentNotInCatme_isReportedAsAnAddition() throws Exception {
     RosterStudent student =
         RosterStudent.builder()
             .studentId("9999999")
@@ -838,6 +925,97 @@ public class CATMEControllerTests extends ControllerTestCase {
     assertEquals(0, result.studentsToUpdate().size());
     assertEquals(1, result.studentsToDrop().size());
     assertEquals("1234567", result.studentsToDrop().get(0).studentId());
+    assertEquals(
+        List.of(new CATMEStudentAdd("9999999", "Uploaded, Not", "notuploaded@ucsb.edu", "0100")),
+        result.studentsToAdd());
+    verify(rosterStudentRepository, never()).save(any());
+    verify(jobService, never()).runAsJob(any());
+    verifyNoInteractions(teamRepository, teamMemberRepository);
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void catmeAudit_additionsIncludeOnlyEnrolledStudentsAndDeduplicateIds() throws Exception {
+    RosterStudent manual = enrolled("2222222", "Sam", "Sabado", null);
+    manual.setRosterStatus(RosterStatus.MANUAL);
+    RosterStudent dropped = enrolled("3333333", "Lauren", "Del Playa", "0200");
+    dropped.setRosterStatus(RosterStatus.DROPPED);
+    when(rosterStudentRepository.findByCourseId(1L))
+        .thenReturn(
+            List.of(
+                enrolled("1111111", "Chris", "Gaucho", "0100"),
+                enrolled("1111111", "Duplicate", "Ignored", "9999"),
+                manual,
+                dropped,
+                enrolled(null, "No", "Id", "0100")));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/audit")
+                    .file(catmeFile(CATME_AUDIT_HEADER))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    CATMEAuditResult result =
+        objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
+    assertEquals(2, result.studentsToAdd().size());
+    assertEquals(
+        Set.of(
+            new CATMEStudentAdd("1111111", "Gaucho, Chris", "chris@ucsb.edu", "0100"),
+            new CATMEStudentAdd("2222222", "Sabado, Sam", "sam@ucsb.edu", "")),
+        Set.copyOf(result.studentsToAdd()));
+    assertEquals(List.of(), result.studentsToUpdate());
+    assertEquals(List.of(), result.studentsToDrop());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void catmeAudit_additionsUseSectionLabelsWhenTranslationIsEnabled() throws Exception {
+    when(rosterStudentRepository.findByCourseId(1L))
+        .thenReturn(List.of(enrolled("1111111", "Chris", "Gaucho", "0100")));
+    when(courseOptionRepository.findByCourseIdAndOption(1L, "TRANSLATE_SECTIONS"))
+        .thenReturn(
+            Optional.of(
+                CourseOption.builder()
+                    .courseId(1L)
+                    .option("TRANSLATE_SECTIONS")
+                    .enabled(true)
+                    .build()));
+    when(sectionRepository.findByCourseId(1L))
+        .thenReturn(List.of(Section.builder().section("0100").label("5pm").build()));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/audit")
+                    .file(catmeFile(CATME_AUDIT_HEADER))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    CATMEAuditResult result =
+        objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
+    assertEquals(
+        List.of(new CATMEStudentAdd("1111111", "Gaucho, Chris", "chris@ucsb.edu", "5pm")),
+        result.studentsToAdd());
+  }
+
+  @Test
+  @WithMockUser(roles = {"USER"})
+  public void catmeAudit_forbiddenForRegularUser() throws Exception {
+    mockMvc
+        .perform(
+            multipart("/api/catme/audit")
+                .file(catmeFile(CATME_AUDIT_HEADER))
+                .with(csrf())
+                .param("courseId", "1"))
+        .andExpect(status().isForbidden());
+    verify(jobService, never()).runAsJob(any());
+    verifyNoInteractions(rosterStudentRepository, teamRepository, teamMemberRepository);
   }
 
   @Test
@@ -1168,6 +1346,24 @@ public class CATMEControllerTests extends ControllerTestCase {
 
   // ---- POST /api/catme/createteams ----
 
+  @Test
+  @WithInstructorCoursePermissions
+  public void createTeams_surveyExportDoesNotTreatPlatformAnswersAsTeamNames() throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    String content =
+        Files.readString(
+            CATME_EXAMPLES.resolve("FakeInstructor-TeamFormation-CMPSC-123-Fall-2026-matches.csv"));
+    mockMvc
+        .perform(
+            multipart("/api/catme/createteams")
+                .file(catmeFile(content))
+                .with(csrf())
+                .param("courseId", "1"))
+        .andExpect(status().isUnprocessableEntity());
+    verify(jobService, never()).runAsJob(any());
+    verifyNoInteractions(teamRepository, teamMemberRepository);
+  }
+
   private static RosterStudent enrolled(
       String studentId, String first, String last, String section) {
     return RosterStudent.builder()
@@ -1334,6 +1530,40 @@ public class CATMEControllerTests extends ControllerTestCase {
         List.of(new CATMEStudentDrop("9999999", "Gone, Someone", "gone@ucsb.edu", "0100")),
         result.studentsToDrop());
     verify(jobService, never()).runAsJob(any());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void createTeams_auditFindsMissingStudent_reportsItAndDoesNotLaunch() throws Exception {
+    when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+    when(rosterStudentRepository.findByCourseId(1L))
+        .thenReturn(
+            List.of(
+                enrolled("1111111", "Chris", "Gaucho", "0100"),
+                enrolled("2222222", "Lauren", "Del Playa", "0200")));
+    String content =
+        CATME_AUDIT_HEADER
+            + "\"Gaucho, Chris\",\"1111111\",\"chris@ucsb.edu\",\"0100\",\"team-01\"\n";
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/catme/createteams")
+                    .file(catmeFile(content))
+                    .with(csrf())
+                    .param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    CATMEAuditResult result =
+        objectMapper.readValue(response.getResponse().getContentAsString(), CATMEAuditResult.class);
+    assertEquals(
+        List.of(new CATMEStudentAdd("2222222", "Del Playa, Lauren", "lauren@ucsb.edu", "0200")),
+        result.studentsToAdd());
+    assertEquals(List.of(), result.studentsToUpdate());
+    assertEquals(List.of(), result.studentsToDrop());
+    verify(jobService, never()).runAsJob(any());
+    verifyNoInteractions(teamRepository, teamMemberRepository);
   }
 
   @Test

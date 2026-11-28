@@ -303,4 +303,25 @@ describe("CanvasApiForm tests", () => {
       [],
     );
   });
+
+  test("clears both fields after a successful submit", async () => {
+    const mockSubmitAction = vi.fn();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <CanvasApiForm submitAction={mockSubmitAction} />
+        </Router>
+      </QueryClientProvider>,
+    );
+
+    const courseIdField = await screen.findByTestId(`${testId}-canvasCourseId`);
+    const tokenField = screen.getByTestId(`${testId}-canvasApiToken`);
+    fireEvent.change(courseIdField, { target: { value: "1234567" } });
+    fireEvent.change(tokenField, { target: { value: "secret-token" } });
+    fireEvent.click(screen.getByTestId(`${testId}-submit`));
+
+    await waitFor(() => expect(mockSubmitAction).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(courseIdField).toHaveValue(""));
+    expect(tokenField).toHaveValue("");
+  });
 });
