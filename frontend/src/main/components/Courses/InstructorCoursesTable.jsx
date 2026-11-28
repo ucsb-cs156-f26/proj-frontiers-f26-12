@@ -61,6 +61,7 @@ export default function InstructorCoursesTable({
 
   const handleCloseCourseEditModal = () => {
     setShowCourseEditModal(false);
+    // Stryker disable next-line CallExpression : the hidden modal ignores this, and opening it again always sets a new course
     setSelectedCourseForEdit(null);
   };
 
@@ -237,6 +238,7 @@ export default function InstructorCoursesTable({
 
   const handleCloseModal = () => {
     setShowModal(false);
+    // Stryker disable next-line CallExpression : the hidden modal ignores this, and opening it again always sets a new course
     setSelectedCourse(null);
   };
 

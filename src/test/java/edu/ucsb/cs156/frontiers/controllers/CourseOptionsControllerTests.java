@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -73,6 +75,7 @@ public class CourseOptionsControllerTests extends ControllerTestCase {
     expected.put("SLACK_INTEGRATION", false);
     expected.put("NEW_ASSIGNMENT_FEATURES", false);
     expected.put("ENABLE_EDUDORA", false);
+    expected.put("ENABLE_CATME", false);
     assertEquals(mapper.writeValueAsString(expected), response.getResponse().getContentAsString());
   }
 
@@ -97,11 +100,12 @@ public class CourseOptionsControllerTests extends ControllerTestCase {
         response.getResponse().getContentAsString());
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(strings = {"ENABLE_CANVAS", "ENABLE_CATME"})
   @WithInstructorCoursePermissions
-  public void setCourseOption_createsNewValue() throws Exception {
+  public void setCourseOption_createsNewValue(String option) throws Exception {
     when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
-    when(courseOptionRepository.findByCourseIdAndOption(eq(1L), eq("ENABLE_CANVAS")))
+    when(courseOptionRepository.findByCourseIdAndOption(eq(1L), eq(option)))
         .thenReturn(Optional.empty());
     when(courseOptionRepository.save(any(CourseOption.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -112,7 +116,7 @@ public class CourseOptionsControllerTests extends ControllerTestCase {
                 post("/api/course/options")
                     .with(csrf())
                     .param("courseId", "1")
-                    .param("option", "ENABLE_CANVAS")
+                    .param("option", option)
                     .param("enabled", "true"))
             .andExpect(status().isOk())
             .andReturn();
@@ -120,10 +124,10 @@ public class CourseOptionsControllerTests extends ControllerTestCase {
     ArgumentCaptor<CourseOption> captor = ArgumentCaptor.forClass(CourseOption.class);
     verify(courseOptionRepository).save(captor.capture());
     assertEquals(1L, captor.getValue().getCourseId());
-    assertEquals("ENABLE_CANVAS", captor.getValue().getOption());
+    assertEquals(option, captor.getValue().getOption());
     assertEquals(true, captor.getValue().getEnabled());
     assertEquals(
-        mapper.writeValueAsString(Map.of("ENABLE_CANVAS", true)),
+        mapper.writeValueAsString(Map.of(option, true)),
         response.getResponse().getContentAsString());
   }
 
@@ -351,6 +355,7 @@ public class CourseOptionsControllerTests extends ControllerTestCase {
     expected.put("SLACK_INTEGRATION", false);
     expected.put("NEW_ASSIGNMENT_FEATURES", false);
     expected.put("ENABLE_EDUDORA", false);
+    expected.put("ENABLE_CATME", false);
     assertEquals(mapper.writeValueAsString(expected), response.getResponse().getContentAsString());
   }
 
@@ -381,6 +386,7 @@ public class CourseOptionsControllerTests extends ControllerTestCase {
     expected.put("SLACK_INTEGRATION", false);
     expected.put("NEW_ASSIGNMENT_FEATURES", false);
     expected.put("ENABLE_EDUDORA", false);
+    expected.put("ENABLE_CATME", false);
     assertEquals(mapper.writeValueAsString(expected), response.getResponse().getContentAsString());
   }
 }

@@ -15,7 +15,9 @@ function SectionTranslator({
 }) {
   const sectionsQueryKey = `/api/courses/${courseId}/sections`;
 
+  // Stryker disable next-line ArrayDeclaration : useBackend always gets initialData, so this default is never used
   const { data: sections = [] } = useBackend(
+    // Stryker disable next-line ArrayDeclaration : the query key only affects caching
     [sectionsQueryKey],
     // Stryker disable next-line StringLiteral : GET and empty string are equivalent
     { method: "GET", url: sectionsQueryKey },
@@ -50,6 +52,7 @@ function SectionTranslator({
       <Form.Select
         data-testid={`${testIdPrefix}-select`}
         id={`${testIdPrefix}-select`}
+        // Stryker disable next-line StringLiteral : a value that matches no option shows the placeholder, same as ""
         value={section ?? ""}
         onChange={handleSelectChange}
       >
