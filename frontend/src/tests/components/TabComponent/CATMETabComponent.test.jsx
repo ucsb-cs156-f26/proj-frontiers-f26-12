@@ -1,12 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CATMETabComponent from "main/components/TabComponent/CATMETabComponent";
 
 describe("CATMETabComponent", () => {
   test("downloads the selected course's roster and follows course changes", () => {
+    const queryClient = new QueryClient();
+    const wrapper = ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const { rerender } = render(
       <CATMETabComponent courseId={7} testIdPrefix="CATME" />,
+      { wrapper },
     );
 
     expect(screen.getByTestId("CATME-catme-tab-component")).toBeVisible();

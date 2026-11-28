@@ -1,7 +1,9 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { toast } from "react-toastify";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
+import axios from "axios";
+import AxiosMockAdapter from "axios-mock-adapter";
 import {
   onSectionMutationError,
   useSectionLabels,
@@ -87,5 +89,29 @@ describe("sectionsUtils tests", () => {
     });
 
     expect(result.current("0100")).toBe("Tue 9:00am");
+  });
+
+  test("useSectionLabels does not show a toast when loading sections fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const axiosMock = new AxiosMockAdapter(axios);
+    axiosMock.onGet("/api/courses/9/sections").reply(500);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    renderHook(() => useSectionLabels(9, true), { wrapper });
+
+    await waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Error communicating with backend via GET on /api/courses/9/sections",
+        expect.anything(),
+      ),
+    );
+    expect(toast).not.toHaveBeenCalled();
+    axiosMock.restore();
+    errorSpy.mockRestore();
   });
 });
