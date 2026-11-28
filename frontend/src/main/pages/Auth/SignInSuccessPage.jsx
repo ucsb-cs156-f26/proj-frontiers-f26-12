@@ -1,15 +1,14 @@
 import BasicLayout from "main/layouts/BasicLayout/BasicLayout";
 import { useNavigate } from "react-router";
+import { useEffect } from "react";
 
 export default function SignInSuccessPage() {
   const storedReturn = sessionStorage.getItem("redirect");
 
   const navigation = useNavigate();
-  if (storedReturn) {
-    navigation(storedReturn);
-  } else {
-    navigation("/");
-  }
+  useEffect(() => {
+    navigation(storedReturn || "/");
+  }, [navigation, storedReturn]);
 
   return (
     <BasicLayout>
